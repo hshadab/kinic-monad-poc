@@ -45,11 +45,11 @@ class MonadLogger:
             if not self.w3.is_connected():
                 raise Exception(f"Failed to connect to Monad at {rpc_url}")
         except Exception as e:
-            print(f"❌ Connection error: {str(e)}")
+            print(f" Connection error: {str(e)}")
             print(f"   This may be a Windows Firewall or SSL certificate issue")
             raise Exception(f"Failed to connect to Monad at {rpc_url}: {str(e)}")
 
-        print(f"✅ Connected to Monad! Chain ID: {self.w3.eth.chain_id}")
+        print(f" Connected to Monad! Chain ID: {self.w3.eth.chain_id}")
 
         # Set up account
         self.account = Account.from_key(private_key)
@@ -163,7 +163,7 @@ class MonadLogger:
                 'gasPrice': self.w3.eth.gas_price
             })
         except Exception as e:
-            print(f"❌ Error building transaction: {e}")
+            print(f" Error building transaction: {e}")
             raise
 
         # Sign transaction
@@ -174,7 +174,7 @@ class MonadLogger:
             tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
             print(f"📡 Transaction sent: {tx_hash.hex()}")
         except Exception as e:
-            print(f"❌ Error sending transaction: {e}")
+            print(f" Error sending transaction: {e}")
             raise
 
         # Wait for receipt
@@ -182,13 +182,13 @@ class MonadLogger:
             receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
 
             if receipt['status'] == 1:
-                print(f"✅ Transaction confirmed! Block: {receipt['blockNumber']}")
+                print(f" Transaction confirmed! Block: {receipt['blockNumber']}")
                 return tx_hash.hex()
             else:
                 raise Exception("Transaction failed")
 
         except Exception as e:
-            print(f"⚠️  Transaction may still be pending: {e}")
+            print(f"  Transaction may still be pending: {e}")
             # Return hash even if receipt fails (can check later)
             return tx_hash.hex()
 
@@ -235,7 +235,7 @@ if __name__ == "__main__":
         contract_address = os.getenv("MONAD_CONTRACT_ADDRESS")
 
         if not private_key or not contract_address:
-            print("❌ Set MONAD_PRIVATE_KEY and MONAD_CONTRACT_ADDRESS env vars")
+            print(" Set MONAD_PRIVATE_KEY and MONAD_CONTRACT_ADDRESS env vars")
             return
 
         logger = MonadLogger(rpc_url, private_key, contract_address)
@@ -248,7 +248,7 @@ if __name__ == "__main__":
             content_hash="0x" + "a" * 64
         )
 
-        print(f"\n✅ Test transaction: {tx}")
+        print(f"\n Test transaction: {tx}")
 
         # Get stats
         total = logger.get_total_memories()

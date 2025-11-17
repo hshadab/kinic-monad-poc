@@ -50,7 +50,7 @@ class KinicRunner:
         else:
             self.cli_path = cli_path
 
-        print(f"✅ KinicRunner initialized with CLI at: {self.cli_path}")
+        print(f" KinicRunner initialized with CLI at: {self.cli_path}")
 
     async def insert(self, content: str, tag: str = "general") -> Dict:
         """
@@ -178,11 +178,11 @@ class KinicRunner:
         # Check for errors
         if process.returncode != 0:
             error_msg = stderr.decode().strip()
-            print(f"❌ kinic-cli error: {error_msg}")
+            print(f" kinic-cli error: {error_msg}")
             raise Exception(f"kinic-cli failed: {error_msg}")
 
         output = stdout.decode().strip()
-        print(f"✅ Command completed successfully")
+        print(f" Command completed successfully")
 
         return output
 

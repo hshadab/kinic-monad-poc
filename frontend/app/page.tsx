@@ -95,7 +95,7 @@ export default function Home() {
               <p className="text-sm text-kinic-text-secondary">Semantic Storage</p>
             </div>
             <div className="p-6">
-              <div className="text-4xl mb-2">⛓️</div>
+              <div className="text-4xl mb-2"></div>
               <h4 className="font-semibold text-kinic-dark mb-1">Monad</h4>
               <p className="text-sm text-kinic-text-secondary">High-Speed Blockchain</p>
             </div>

@@ -124,13 +124,13 @@ export default function Memories() {
         {/* Success/Error Messages */}
         {success && (
           <div className="mb-6 p-4 bg-green-100 border-4 border-black text-green-800 font-bold" style={{ boxShadow: '4px 4px 0 0 #000' }}>
-            ✅ {success}
+             {success}
           </div>
         )}
 
         {error && (
           <div className="mb-6 p-4 bg-red-100 border-4 border-black text-red-800 font-bold" style={{ boxShadow: '4px 4px 0 0 #000' }}>
-            ❌ {error}
+             {error}
           </div>
         )}
 

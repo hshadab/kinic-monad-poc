@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
     if not anthropic_key:
         raise ValueError("ANTHROPIC_API_KEY not found in keyring or environment variables. Run setup_credentials.py first.")
 
-    print("✅ Credentials loaded successfully")
+    print(" Credentials loaded successfully")
 
     # Initialize Kinic runner
     print("\n📦 Initializing Kinic Runner...")
@@ -86,7 +86,7 @@ async def lifespan(app: FastAPI):
     )
 
     print("\n" + "="*60)
-    print("✅ All services initialized successfully!")
+    print(" All services initialized successfully!")
     print("="*60 + "\n")
 
     yield
@@ -162,37 +162,37 @@ async def insert_memory(request: InsertRequest):
         print(f"\n📝 INSERT request received ({len(request.content)} chars)")
 
         # 1. Insert into Kinic memory (Internet Computer)
-        print("  → Storing in Kinic...")
+        print("  -> Storing in Kinic...")
         kinic_result = None
         try:
             kinic_result = await kinic.insert(
                 content=request.content,
                 tag=request.user_tags or "general"
             )
-            print(f"  ✅ Stored in Kinic")
+            print(f"   Stored in Kinic")
         except Exception as e:
             # Handle keyring error in WSL gracefully
-            print(f"  ⚠️  Kinic insert failed (expected in WSL): {str(e)[:50]}")
+            print(f"    Kinic insert failed (expected in WSL): {str(e)[:50]}")
             print("     Will log to Monad only")
             kinic_result = {"status": "skipped", "reason": "keyring_unavailable"}
 
         # 2. Extract metadata
-        print("  → Extracting metadata...")
+        print("  -> Extracting metadata...")
         metadata = extract_metadata(request.content, request.user_tags)
-        print(f"  ✅ Title: '{metadata.title[:50]}...'")
-        print(f"  ✅ Tags: {metadata.tags}")
+        print(f"   Title: '{metadata.title[:50]}...'")
+        print(f"   Tags: {metadata.tags}")
 
         # 3. Log to Monad with rich metadata
-        print("  → Logging to Monad blockchain...")
+        print("  -> Logging to Monad blockchain...")
         monad_tx = await monad.log_insert(
             title=metadata.title,
             summary=metadata.summary,
             tags=metadata.tags,
             content_hash=metadata.content_hash
         )
-        print(f"  ✅ Logged to Monad: {monad_tx[:16]}...")
+        print(f"   Logged to Monad: {monad_tx[:16]}...")
 
-        print(f"✅ INSERT completed successfully!\n")
+        print(f" INSERT completed successfully!\n")
 
         return InsertResponse(
             kinic_result=kinic_result,
@@ -201,7 +201,7 @@ async def insert_memory(request: InsertRequest):
         )
 
     except Exception as e:
-        print(f"❌ INSERT failed: {e}\n")
+        print(f" INSERT failed: {e}\n")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -223,26 +223,26 @@ async def search_memory(request: SearchRequest):
         print(f"\n🔍 SEARCH request: '{request.query}'")
 
         # 1. Search Kinic memory
-        print("  → Searching Kinic...")
+        print("  -> Searching Kinic...")
         kinic_results = await kinic.search(
             query=request.query,
             format="json"
         )
-        print(f"  ✅ Found {len(kinic_results)} results")
+        print(f"   Found {len(kinic_results)} results")
 
         # 2. Extract query metadata
-        print("  → Extracting metadata...")
+        print("  -> Extracting metadata...")
         metadata = extract_metadata(request.query, "search")
 
         # 3. Log search to Monad
-        print("  → Logging search to Monad...")
+        print("  -> Logging search to Monad...")
         monad_tx = await monad.log_search(
             title=f"Search: {metadata.title}",
             summary=metadata.summary,
             tags=metadata.tags,
             content_hash=metadata.content_hash
         )
-        print(f"  ✅ Logged to Monad: {monad_tx[:16]}...")
+        print(f"   Logged to Monad: {monad_tx[:16]}...")
 
         # 4. Format results
         results = []
@@ -253,7 +253,7 @@ async def search_memory(request: SearchRequest):
                 tag=item.get("tag")
             ))
 
-        print(f"✅ SEARCH completed successfully!\n")
+        print(f" SEARCH completed successfully!\n")
 
         return SearchResponse(
             results=results,
@@ -262,7 +262,7 @@ async def search_memory(request: SearchRequest):
         )
 
     except Exception as e:
-        print(f"❌ SEARCH failed: {e}\n")
+        print(f" SEARCH failed: {e}\n")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -305,7 +305,7 @@ async def chat_with_agent(request: ChatRequest):
         print(f"\n💬 CHAT request: '{request.message[:50]}...'")
 
         # 1. Search Kinic for relevant context
-        print("  → Searching Kinic for context...")
+        print("  -> Searching Kinic for context...")
         memories = []
 
         try:
@@ -322,24 +322,24 @@ async def chat_with_agent(request: ChatRequest):
                     "tag": item.get("tag", "")
                 })
 
-            print(f"  ✅ Found {len(memories)} relevant memories")
+            print(f"   Found {len(memories)} relevant memories")
         except Exception as e:
             # Handle keyring error in WSL gracefully
-            print(f"  ⚠️  Kinic search failed (expected in WSL): {str(e)[:50]}")
+            print(f"    Kinic search failed (expected in WSL): {str(e)[:50]}")
             print("     Chat will work without memory context")
             memories = []
-            print(f"  ✅ Found {len(memories)} relevant memories")
+            print(f"   Found {len(memories)} relevant memories")
 
         # 2. Generate AI response with context
-        print("  → Generating AI response with Claude...")
+        print("  -> Generating AI response with Claude...")
         response_text = await ai_agent.chat(
             message=request.message,
             memory_context=memories
         )
-        print(f"  ✅ AI response generated ({len(response_text)} chars)")
+        print(f"   AI response generated ({len(response_text)} chars)")
 
         # 3. Extract metadata for Monad logging
-        print("  → Logging conversation to Monad...")
+        print("  -> Logging conversation to Monad...")
         conversation_metadata = extract_metadata(
             f"User: {request.message}\nAgent: {response_text}",
             "chat,conversation"
@@ -352,9 +352,9 @@ async def chat_with_agent(request: ChatRequest):
             tags=conversation_metadata.tags,
             content_hash=conversation_metadata.content_hash
         )
-        print(f"  ✅ Logged to Monad: {monad_tx[:16]}...")
+        print(f"   Logged to Monad: {monad_tx[:16]}...")
 
-        print(f"✅ CHAT completed successfully!\n")
+        print(f" CHAT completed successfully!\n")
 
         return ChatResponse(
             response=response_text,
@@ -364,7 +364,7 @@ async def chat_with_agent(request: ChatRequest):
         )
 
     except Exception as e:
-        print(f"❌ CHAT failed: {e}\n")
+        print(f" CHAT failed: {e}\n")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -400,7 +400,7 @@ if FRONTEND_DIR.exists():
 
         raise HTTPException(status_code=404, detail="Not found")
 else:
-    print("⚠️  Frontend not found - serving API only")
+    print("  Frontend not found - serving API only")
 
 
 # Run locally for testing
@@ -408,7 +408,7 @@ if __name__ == "__main__":
     import uvicorn
 
     print("🧪 Running in development mode...")
-    print("⚠️  Make sure you have set all required environment variables!\n")
+    print("  Make sure you have set all required environment variables!\n")
 
     uvicorn.run(
         "main:app",
