@@ -16,7 +16,23 @@ RUN git clone -b poc https://github.com/ICME-Lab/kinic-cli.git
 WORKDIR /build/kinic-cli
 RUN cargo build --release
 
-# Stage 2: Runtime environment
+# Stage 2: Build Next.js frontend
+FROM node:18-slim as frontend-builder
+
+WORKDIR /frontend
+
+# Copy frontend files
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/ ./
+
+# Set API URL for production build (same domain for API calls)
+ENV NEXT_PUBLIC_API_URL=''
+
+RUN npm run build
+
+# Stage 3: Runtime environment
 FROM python:3.11-slim
 
 # Install runtime dependencies
@@ -32,6 +48,10 @@ COPY --from=builder /build/kinic-cli/target/release/kinic-cli /app/kinic-cli/tar
 
 # Make binary executable
 RUN chmod +x /app/kinic-cli/target/release/kinic-cli
+
+# Copy Next.js built frontend from frontend-builder
+COPY --from=frontend-builder /frontend/out /app/frontend/out
+COPY --from=frontend-builder /frontend/public /app/frontend/public
 
 # Copy Python requirements and install
 COPY requirements.txt .

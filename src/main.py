@@ -10,7 +10,10 @@ load_dotenv()
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from src.models import (
     InsertRequest, SearchRequest, InsertResponse,
@@ -110,16 +113,18 @@ app.add_middleware(
 )
 
 
-@app.get("/", response_model=dict)
-async def root():
-    """Root endpoint"""
+@app.get("/api", response_model=dict)
+async def api_root():
+    """API root endpoint"""
     return {
         "service": "Kinic Memory Agent on Monad",
         "status": "running",
         "endpoints": {
             "insert": "POST /insert",
             "search": "POST /search",
-            "health": "GET /health"
+            "health": "GET /health",
+            "chat": "POST /chat",
+            "stats": "GET /stats"
         }
     }
 
@@ -361,6 +366,41 @@ async def chat_with_agent(request: ChatRequest):
     except Exception as e:
         print(f"❌ CHAT failed: {e}\n")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Serve Next.js frontend static files
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "out"
+
+if FRONTEND_DIR.exists():
+    # Mount static files (CSS, JS, images, etc.)
+    app.mount("/_next", StaticFiles(directory=FRONTEND_DIR / "_next"), name="static-next")
+
+    # Serve root and all routes with index.html (SPA routing)
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """Serve Next.js frontend for all non-API routes"""
+        # If it's an API route, return 404
+        if full_path.startswith(("insert", "search", "chat", "health", "stats", "api")):
+            raise HTTPException(status_code=404, detail="Not found")
+
+        # Try to serve the exact file first (for static assets)
+        file_path = FRONTEND_DIR / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+
+        # Try with .html extension (Next.js static export)
+        html_path = FRONTEND_DIR / f"{full_path}.html"
+        if html_path.is_file():
+            return FileResponse(html_path)
+
+        # Default to index.html for SPA routing
+        index_path = FRONTEND_DIR / "index.html"
+        if index_path.is_file():
+            return FileResponse(index_path)
+
+        raise HTTPException(status_code=404, detail="Not found")
+else:
+    print("⚠️  Frontend not found - serving API only")
 
 
 # Run locally for testing
