@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: kinic-monad-agent
+    runtime: docker
+    plan: starter
+    region: oregon
+    repo: https://github.com/YOUR_USERNAME/kinic-monad-poc  # Update with your repo
+    branch: main
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # Monad Configuration
+      - key: MONAD_RPC_URL
+        value: https://testnet-rpc.monad.xyz
+
+      - key: MONAD_CONTRACT_ADDRESS
+        sync: false  # Set in Render dashboard after deployment
+
+      - key: MONAD_PRIVATE_KEY
+        sync: false  # Secret - set in Render dashboard
+
+      # Internet Computer Configuration
+      - key: KINIC_MEMORY_ID
+        sync: false  # Your deployed memory canister ID
+
+      - key: IC_IDENTITY_NAME
+        value: default
+
+      - key: IC_IDENTITY_PEM
+        sync: false  # Secret - base64 encoded PEM file
+
+      # Python/Runtime
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+    healthCheckPath: /health
+
+    autoDeploy: true
