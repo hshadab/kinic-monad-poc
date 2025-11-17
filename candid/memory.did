@@ -1,0 +1,20 @@
+// Candid interface for Kinic Memory Canister
+// Extracted from kinic-cli Rust implementation
+
+type InsertResult = nat32;
+type SearchResult = record {
+  score: float32;
+  text: text;
+};
+
+service : {
+  // Insert embedding and text into memory
+  // Args: (embedding: vec float32, text: text)
+  // Returns: memory ID
+  insert: (vec float32, text) -> (InsertResult);
+
+  // Search for similar embeddings
+  // Args: (query_embedding: vec float32)
+  // Returns: vec of (score, text) tuples
+  search: (vec float32) -> (vec record { float32; text }) query;
+}

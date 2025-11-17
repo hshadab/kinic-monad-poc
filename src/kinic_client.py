@@ -110,47 +110,65 @@ class KinicClient:
         """
         Insert content into Kinic memory via IC
 
+        Canister method: insert(vec float32, text) -> nat32
+
         Args:
             content: Text content to store
-            tag: Tag to associate with content
+            tag: Tag to associate with content (used in text)
 
         Returns:
             Result dictionary
         """
         try:
-            # 1. Get embeddings from Kinic API
-            print(f"Getting embeddings for {len(content)} chars...")
+            # 1. Get embedding from Kinic API
+            print(f"Getting embedding for {len(content)} chars...")
             embeddings = await self.get_embeddings(content)
 
-            if not embeddings:
+            if not embeddings or len(embeddings) == 0:
                 return {
                     "status": "error",
                     "error": "Failed to generate embeddings",
                     "tag": tag
                 }
 
-            print(f"Got {len(embeddings)} embedding vectors")
+            # Use first embedding vector (late-chunking should return one vector per text)
+            embedding_vector = embeddings[0]
+            print(f"Got embedding vector of length {len(embedding_vector)}")
 
-            # 2. Call IC canister to store embeddings
-            # The canister's insert method signature needs to match
-            # This is a simplified version - adjust based on actual canister interface
+            # 2. Prepare text with tag
+            tagged_text = f"{tag}: {content}"
+
+            # 3. Encode arguments: (vec float32, text)
+            # ic-py candid encoding
             params = [
-                {'type': Types.Text, 'value': content},
-                {'type': Types.Text, 'value': tag},
-                # Add embeddings as vec<vec<f32>> or similar
+                {'type': Types.Vec(Types.Float32), 'value': embedding_vector},
+                {'type': Types.Text, 'value': tagged_text}
             ]
 
-            # For now, just return success since we don't have the exact canister interface
-            # In production, would call: result = self.agent.update_raw(self.memory_id, "insert", encode(params))
+            # 4. Call IC canister insert method
+            print(f"Calling canister {self.memory_id} insert method...")
+            result = await self.agent.update_raw(
+                self.memory_id,
+                "insert",
+                encode(params)
+            )
+
+            # Decode response (nat32 = memory ID)
+            memory_id = decode(result, [{'type': Types.Nat32}])[0]
+
+            print(f"Successfully inserted memory ID: {memory_id}")
 
             return {
                 "status": "inserted",
-                "embeddings_count": len(embeddings),
+                "memory_id": memory_id,
+                "embedding_dim": len(embedding_vector),
                 "tag": tag
             }
 
         except Exception as e:
             print(f"Insert error: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 "status": "error",
                 "error": str(e),
@@ -161,35 +179,74 @@ class KinicClient:
         """
         Search Kinic memory via IC
 
+        Canister method: search(vec float32) -> vec record { float32; text }
+
         Args:
             query: Search query string
-            top_k: Number of results
+            top_k: Number of results (note: canister returns all, we filter)
 
         Returns:
-            List of search results
+            List of search results with score and text
         """
         try:
             # 1. Get query embedding
-            print(f"Getting embedding for query: {query}")
+            print(f"Getting embedding for query: {query[:50]}...")
             embeddings = await self.get_embeddings(query)
 
-            if not embeddings:
+            if not embeddings or len(embeddings) == 0:
+                print("Failed to get query embedding")
                 return []
 
-            query_embedding = embeddings[0] if embeddings else []
+            query_embedding = embeddings[0]
+            print(f"Got query embedding of length {len(query_embedding)}")
 
-            # 2. Call IC canister to search
-            # params = [
-            #     {'type': Types.Vec(Types.Float32), 'value': query_embedding},
-            #     {'type': Types.Nat, 'value': top_k}
-            # ]
-            # results = self.agent.query_raw(self.memory_id, "search", encode(params))
+            # 2. Encode search argument: vec float32
+            params = [
+                {'type': Types.Vec(Types.Float32), 'value': query_embedding}
+            ]
 
-            # For now, return empty since we need the exact canister interface
-            return []
+            # 3. Call IC canister search method (query, not update)
+            print(f"Calling canister {self.memory_id} search method...")
+            result = await self.agent.query_raw(
+                self.memory_id,
+                "search",
+                encode(params)
+            )
+
+            # 4. Decode response: vec record { float32; text }
+            # ic-py should decode this as list of tuples
+            search_results = decode(result, [
+                {'type': Types.Vec(
+                    Types.Record([
+                        {'type': Types.Float32},
+                        {'type': Types.Text}
+                    ])
+                )}
+            ])[0]
+
+            print(f"Got {len(search_results)} search results")
+
+            # 5. Format results and limit to top_k
+            formatted_results = []
+            for score, text in search_results[:top_k]:
+                # Extract tag if present
+                tag = ""
+                if ":" in text:
+                    tag, text = text.split(":", 1)
+                    text = text.strip()
+
+                formatted_results.append({
+                    "score": float(score),
+                    "text": text,
+                    "tag": tag.strip()
+                })
+
+            return formatted_results
 
         except Exception as e:
             print(f"Search error: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
 
