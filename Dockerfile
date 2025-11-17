@@ -79,9 +79,11 @@ export LC_ALL=C.UTF-8\n\
 # Write IC identity PEM from environment variable if provided\n\
 if [ ! -z "$IC_IDENTITY_PEM" ]; then\n\
     echo "Writing IC identity from environment variable..."\n\
-    echo "$IC_IDENTITY_PEM" > /root/.config/dfx/identity/default/identity.pem\n\
+    printf "%s\\n" "$IC_IDENTITY_PEM" > /root/.config/dfx/identity/default/identity.pem\n\
     chmod 600 /root/.config/dfx/identity/default/identity.pem\n\
-    echo "IC identity configured"\n\
+    echo "IC identity file created:"\n\
+    ls -la /root/.config/dfx/identity/default/identity.pem\n\
+    echo "IC identity configured successfully"\n\
 else\n\
     echo "WARNING: IC_IDENTITY_PEM not set - Kinic functionality will be limited"\n\
 fi\n\

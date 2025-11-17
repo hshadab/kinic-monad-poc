@@ -194,10 +194,12 @@ async def insert_memory(request: InsertRequest):
             )
             print(f"   Stored in Kinic")
         except Exception as e:
-            # Handle keyring error in WSL gracefully
-            print(f"    Kinic insert failed (expected in WSL): {str(e)[:50]}")
+            # Handle Kinic errors gracefully
+            error_msg = str(e)
+            print(f"    Kinic insert failed: {error_msg}")
+            print(f"    Full error: {repr(e)}")
             print("     Will log to Monad only")
-            kinic_result = {"status": "skipped", "reason": "keyring_unavailable"}
+            kinic_result = {"status": "skipped", "reason": error_msg[:100]}
 
         # 2. Extract metadata
         print("  -> Extracting metadata...")
@@ -347,8 +349,9 @@ async def chat_with_agent(request: ChatRequest):
 
             print(f"   Found {len(memories)} relevant memories")
         except Exception as e:
-            # Handle keyring error in WSL gracefully
-            print(f"    Kinic search failed (expected in WSL): {str(e)[:50]}")
+            # Handle Kinic errors gracefully
+            print(f"    Kinic search failed: {str(e)}")
+            print(f"    Full error: {repr(e)}")
             print("     Chat will work without memory context")
             memories = []
             print(f"   Found {len(memories)} relevant memories")
