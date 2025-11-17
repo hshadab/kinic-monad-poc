@@ -112,6 +112,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add response headers to prevent caching
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+
+class NoCacheMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # Prevent caching of HTML and JavaScript files
+        if request.url.path.endswith(('.html', '.js', '.css')):
+            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+        return response
+
+app.add_middleware(NoCacheMiddleware)
+
 
 @app.get("/api", response_model=dict)
 async def api_root():
