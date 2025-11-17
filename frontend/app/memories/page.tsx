@@ -32,13 +32,25 @@ export default function Memories() {
   const loadMemories = async () => {
     try {
       setLoading(true)
-      const stats = await memoryAPI.getStats()
+      // Search with a wildcard to get recent memories
+      // This will return the most recent memories stored in Kinic
+      const results = await memoryAPI.searchMemories('*', 20)
 
-      // For now, we'll show a placeholder
-      // In production, you'd call a /list-memories endpoint
-      setMemories([])
+      // Convert search results to Memory format
+      const formattedMemories = results.map((r: any) => ({
+        title: r.text.slice(0, 50) + '...',
+        summary: r.text,
+        tags: r.tag || '',
+        timestamp: Date.now() / 1000,
+        contentHash: '',
+        monadTx: ''
+      }))
+
+      setMemories(formattedMemories)
     } catch (err) {
       console.error('Failed to load memories:', err)
+      // If search fails, just show empty (might be no memories yet)
+      setMemories([])
     } finally {
       setLoading(false)
     }
