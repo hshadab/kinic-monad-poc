@@ -26,7 +26,7 @@ services:
         value: kinic_local
 
       - key: IC_IDENTITY_PEM
-        sync: false  # Secret - base64 encoded PEM file (optional)
+        sync: false  # REQUIRED for full Kinic functionality - PEM content from ~/.config/dfx/identity/default/identity.pem
 
       # Anthropic AI
       - key: ANTHROPIC_API_KEY
