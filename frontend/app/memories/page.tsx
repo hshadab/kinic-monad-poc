@@ -32,24 +32,26 @@ export default function Memories() {
   const loadMemories = async () => {
     try {
       setLoading(true)
-      // Search with a wildcard to get recent memories
-      // This will return the most recent memories stored in Kinic
-      const results = await memoryAPI.searchMemories('*', 20)
+      // Fetch memories from Monad blockchain
+      const response = await fetch('/list-memories?limit=20')
+      if (!response.ok) throw new Error('Failed to fetch memories')
 
-      // Convert search results to Memory format
-      const formattedMemories = results.map((r: any) => ({
-        title: r.text.slice(0, 50) + '...',
-        summary: r.text,
-        tags: r.tag || '',
-        timestamp: Date.now() / 1000,
-        contentHash: '',
+      const data = await response.json()
+
+      // Convert Monad memories to Memory format
+      const formattedMemories = data.memories.map((m: any) => ({
+        title: m.title,
+        summary: m.summary,
+        tags: m.tags,
+        timestamp: m.timestamp,
+        contentHash: m.contentHash,
         monadTx: ''
       }))
 
       setMemories(formattedMemories)
     } catch (err) {
       console.error('Failed to load memories:', err)
-      // If search fails, just show empty (might be no memories yet)
+      // If fetch fails, just show empty (might be no memories yet)
       setMemories([])
     } finally {
       setLoading(false)

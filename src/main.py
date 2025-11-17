@@ -311,6 +311,51 @@ async def get_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/list-memories", response_model=dict)
+async def list_memories(limit: int = 20, offset: int = 0):
+    """List memories from Monad blockchain"""
+    if not monad:
+        raise HTTPException(status_code=503, detail="Monad not initialized")
+
+    try:
+        total_memories = monad.get_total_memories()
+        user_memories_ids = []
+
+        # Get all memory IDs for this user
+        user_count = monad.get_user_memory_count(monad.account.address)
+
+        # Fetch user's memories (most recent first)
+        memories_list = []
+        for i in range(max(0, user_count - offset - limit), min(user_count, user_count - offset)):
+            memory_id = monad.contract.functions.userMemories(monad.account.address, i).call()
+            memory_data = monad.get_memory(memory_id)
+
+            # Only include INSERT operations (opType == 0), not SEARCH operations
+            if memory_data["opType"] == 0:
+                memories_list.append({
+                    "id": memory_id,
+                    "title": memory_data["title"],
+                    "summary": memory_data["summary"],
+                    "tags": memory_data["tags"],
+                    "contentHash": memory_data["contentHash"],
+                    "timestamp": memory_data["timestamp"],
+                    "user": memory_data["user"]
+                })
+
+        # Reverse to show most recent first
+        memories_list.reverse()
+
+        return {
+            "memories": memories_list,
+            "total": user_count,
+            "limit": limit,
+            "offset": offset
+        }
+    except Exception as e:
+        print(f"Error listing memories: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat_with_agent(request: ChatRequest):
     """
