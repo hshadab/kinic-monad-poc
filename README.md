@@ -84,17 +84,18 @@ Never lose track of important information. Store notes, research, and conversati
 
 ## 🚀 **Current Status**
 
-### ✅ **Deployed & Working:**
+### ✅ **FULLY DEPLOYED & LIVE:**
 - ✅ **Internet Computer Canister**: `2x5sz-ciaaa-aaaak-apgta-cai`
+- ✅ **Monad Smart Contract**: Deployed on Monad Mainnet
+- ✅ **Render Deployment**: https://monad-ai-memory.onrender.com
 - ✅ **AI Agent**: Claude Haiku integrated
-- ✅ **API Endpoints**: /insert, /search, /chat, /stats
+- ✅ **Frontend**: Next.js app with Chat, Memories, Dashboard pages
+- ✅ **API Endpoints**: /insert, /search, /chat, /stats, /health
 - ✅ **Metadata Extraction**: Automated title/summary/tags
-- ✅ **All Code**: 100% complete and tested
+- ✅ **Blockchain Logging**: All operations logged to Monad
 
-### ⏳ **Pending:**
-- ⏳ **Monad Smart Contract**: Waiting for MON tokens
-- ⏳ **Render Deployment**: Blocked by contract deployment
-- ⏳ **Frontend**: Foundation built, pages pending
+### 🎯 **Production Ready**
+All features working end-to-end. Ready for testing and demos!
 
 ---
 
@@ -104,7 +105,7 @@ Never lose track of important information. Store notes, research, and conversati
 Talk with the AI agent using memories as context.
 
 ```bash
-curl -X POST https://your-app.onrender.com/chat \
+curl -X POST https://monad-ai-memory.onrender.com/chat \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Tell me about ZKML",
@@ -132,7 +133,7 @@ curl -X POST https://your-app.onrender.com/chat \
 Store new content with automatic metadata extraction.
 
 ```bash
-curl -X POST https://your-app.onrender.com/insert \
+curl -X POST https://monad-ai-memory.onrender.com/insert \
   -H "Content-Type: application/json" \
   -d '{
     "content": "# Research Notes\nImportant findings...",
@@ -158,7 +159,7 @@ curl -X POST https://your-app.onrender.com/insert \
 Search memories by meaning, not just keywords.
 
 ```bash
-curl -X POST https://your-app.onrender.com/search \
+curl -X POST https://monad-ai-memory.onrender.com/search \
   -H "Content-Type: application/json" \
   -d '{
     "query": "blockchain performance",
@@ -170,7 +171,7 @@ curl -X POST https://your-app.onrender.com/search \
 View on-chain memory statistics.
 
 ```bash
-curl https://your-app.onrender.com/stats
+curl https://monad-ai-memory.onrender.com/stats
 ```
 
 **Response:**
@@ -185,7 +186,17 @@ curl https://your-app.onrender.com/stats
 
 ### `GET /health` - Health Check
 ```bash
-curl https://your-app.onrender.com/health
+curl https://monad-ai-memory.onrender.com/health
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "kinic": "connected",
+  "monad": "connected",
+  "memory_id": "2x5sz-ciaaa-aaaak-apgta-cai"
+}
 ```
 
 ---
@@ -204,11 +215,12 @@ curl https://your-app.onrender.com/health
 - **Monad** - EVM-compatible blockchain
 - **Solidity** - Smart contracts
 
-### **Frontend** (In Progress)
-- **Next.js 14** - React framework
+### **Frontend**
+- **Next.js 14** - React framework with App Router
 - **TypeScript** - Type safety
-- **Tailwind CSS** - Styling with Kinic design
-- **Vercel** - Deployment
+- **Tailwind CSS** - Brutalist Kinic design system
+- **Axios** - API client
+- **Deployed on Render** - Same-domain static + API
 
 ---
 
@@ -250,59 +262,54 @@ kinic-monad-poc/
 
 ## 🚀 **Deployment**
 
-### **Prerequisites**
+### **Live Deployment**
 
-1. **Monad Tokens** - For smart contract deployment
-   - Contact Monad team or use faucet
-   - Address: `0xDA9f4e4C9596a1dA338164FD22895D8C167C6Bd6`
+The application is currently deployed and running at:
+- **URL**: https://monad-ai-memory.onrender.com
+- **Platform**: Render.com
+- **Frontend**: Next.js static export served by FastAPI
+- **Backend**: FastAPI with Uvicorn
+- **Database**: Internet Computer Canister `2x5sz-ciaaa-aaaak-apgta-cai`
+- **Blockchain**: Monad Mainnet (contract deployed)
 
-2. **API Keys**
-   - Anthropic API key (for Claude)
-   - Already have Kinic API access
+### **Deploy Your Own Instance**
 
-3. **IC Canister** - ✅ Already deployed!
-   - Canister ID: `2x5sz-ciaaa-aaaak-apgta-cai`
-
-### **Quick Deploy (When Tokens Arrive)**
-
+#### 1. Fork Repository
 ```bash
-# 1. Clone repository
-git clone <your-repo>
+git clone https://github.com/your-username/kinic-monad-poc
 cd kinic-monad-poc
-
-# 2. Deploy Monad contract
-source venv/bin/activate
-python contracts/deploy.py
-
-# 3. Update .env with contract address
-nano .env  # Add MONAD_CONTRACT_ADDRESS
-
-# 4. Test locally
-./scripts/test_local.sh
-
-# 5. Deploy to Render
-git push origin main
-# Configure on Render dashboard
 ```
 
-### **Environment Variables**
+#### 2. Set Up Credentials
 
-Required for deployment:
+Create environment variables on Render:
 
 ```bash
-# Monad
-MONAD_RPC_URL=https://rpc-mainnet.monadinfra.com/rpc/...
-MONAD_CONTRACT_ADDRESS=0x...  # From deployment
-MONAD_PRIVATE_KEY=0x...       # Your wallet
+# Monad (get your own)
+MONAD_RPC_URL=https://rpc-mainnet.monadinfra.com/rpc/YOUR_API_KEY
+MONAD_CONTRACT_ADDRESS=0xYOUR_CONTRACT_ADDRESS
+MONAD_PRIVATE_KEY=0xYOUR_PRIVATE_KEY
 
-# Internet Computer
-KINIC_MEMORY_ID=2x5sz-ciaaa-aaaak-apgta-cai
-IC_IDENTITY_NAME=kinic_local
-IC_IDENTITY_PEM=-----BEGIN EC PRIVATE KEY-----...
+# Internet Computer (get IC identity)
+KINIC_MEMORY_ID=your-canister-id
+IC_IDENTITY_PEM=-----BEGIN EC PRIVATE KEY-----\nYOUR_IDENTITY\n-----END EC PRIVATE KEY-----
 
-# AI
-ANTHROPIC_API_KEY=sk-ant-api03-...
+# AI (get from Anthropic)
+ANTHROPIC_API_KEY=sk-ant-api03-YOUR_KEY
 ```
+
+**Important**: Never commit `.env` files or credentials to git! They are gitignored for security.
+
+#### 3. Deploy to Render
+
+1. Push code to GitHub
+2. Create new Web Service on Render
+3. Connect your repository
+4. Set environment type: **Docker**
+5. Add all environment variables above
+6. Deploy!
+
+Build time: ~8-12 minutes (Rust + Node + Python build)
 
 ---
 
@@ -376,24 +383,28 @@ struct Memory {
 
 ## 🔮 **Roadmap**
 
-### **Phase 1: MVP** (95% Complete)
-- ✅ IC canister deployed
-- ✅ AI agent integrated
-- ✅ API complete
-- ⏳ Monad contract (waiting for tokens)
-- ⏳ Render deployment
+### **Phase 1: MVP** ✅ COMPLETE
+- ✅ IC canister deployed on Internet Computer
+- ✅ AI agent integrated (Claude Haiku)
+- ✅ API complete with all endpoints
+- ✅ Monad contract deployed to mainnet
+- ✅ Full deployment on Render.com
+- ✅ Frontend with Chat, Memories, Dashboard pages
+- ✅ Docker multi-stage build (Rust + Node + Python)
 
-### **Phase 2: Multi-User** (Future)
-- 🔐 Wallet-based authentication
+### **Phase 2: Enhancements** (Planned)
+- 🔐 Wallet-based authentication (MetaMask/WalletConnect)
 - 📁 Per-user memory isolation
 - 💰 User-paid transactions
-- 🎨 Complete frontend
+- 🎨 Enhanced UI/UX
+- 📱 Mobile-responsive design improvements
 
-### **Phase 3: Advanced** (Future)
-- 🔍 Advanced semantic features
-- 💬 Conversation history
-- 📈 Analytics dashboard
+### **Phase 3: Advanced Features** (Future)
+- 🔍 Advanced semantic features (clustering, similarity graphs)
+- 💬 Conversation history and threading
+- 📈 Analytics dashboard with visualizations
 - 🔗 Cross-agent knowledge sharing
+- 🌐 Multi-chain support
 
 ---
 
@@ -433,6 +444,19 @@ Built with:
 
 ---
 
-**Status**: ✅ Backend Complete | ⏳ Waiting for Monad Tokens | 🚧 Frontend In Progress
+---
 
-**Last Updated**: November 2025
+## 🎉 **Try It Now!**
+
+**Live Demo**: https://monad-ai-memory.onrender.com
+
+- 💬 Chat with AI agent
+- 📝 Store and search memories
+- 📊 View blockchain stats
+- ⛓️ All operations logged on Monad
+
+---
+
+**Status**: ✅ **FULLY DEPLOYED & OPERATIONAL**
+
+**Last Updated**: November 17, 2025
