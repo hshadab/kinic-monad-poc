@@ -14,7 +14,151 @@ Never lose track of important information. Store notes, research, and conversati
 
 ---
 
-## 🏗️ **Architecture**
+## 🧠 **How It Works: Dual Storage Architecture**
+
+This system uses **two blockchain networks** working together, each optimized for different purposes:
+
+### **🔷 Kinic/Internet Computer - Semantic Memory Storage**
+
+**Role**: Full-content storage with AI-powered semantic search
+
+**What it does:**
+- Stores complete content (full text, documents, notes)
+- Generates vector embeddings via Kinic's embedding API
+- Performs semantic similarity search (finds meaning, not just keywords)
+- Enables "late chunking" for accurate long-form content retrieval
+
+**How we use it:**
+```python
+# Pure Python client using ic-py library
+from ic.agent import Agent
+from ic.candid import encode, decode
+
+# 1. Convert text to vectors (Kinic Embedding API)
+embeddings = await httpx.post("https://api.kinic.io/late-chunking", json={"text": content})
+
+# 2. Store vectors + text in IC canister
+await agent.update_raw(canister_id, "insert", encode([embedding_vector, text]))
+
+# 3. Semantic search (not keyword matching!)
+results = await agent.query_raw(canister_id, "search", encode([query_embedding]))
+```
+
+**Storage Location:**
+- **Canister ID**: `2x5sz-ciaaa-aaaak-apgta-cai`
+- **Network**: Internet Computer (decentralized cloud)
+- **Cost**: ~$0.000001 per operation
+
+### **🟣 Monad Blockchain - Metadata & Audit Trail**
+
+**Role**: Human-readable metadata logging and public knowledge graph
+
+**What it does:**
+- Logs rich metadata (titles, summaries, tags) on-chain
+- Creates searchable, verifiable audit trail
+- Stores content hashes for integrity verification
+- Enables public browsing of knowledge operations
+
+**How we use it:**
+```solidity
+// Smart contract stores readable metadata
+struct Memory {
+    address user;           // Who created it
+    uint8 opType;          // INSERT, SEARCH, or CHAT
+    string title;          // "ZKML Research Notes"
+    string summary;        // First 200 chars or AI summary
+    string tags;           // "zkml,research,blockchain"
+    bytes32 contentHash;   // SHA256 of full content
+    uint256 timestamp;     // When it happened
+}
+```
+
+**Why not just store everything on Monad?**
+- ❌ Expensive: Storing full content costs $$$ in gas
+- ❌ Slow: Large data bloats transactions
+- ✅ Solution: Store metadata on Monad, full content on IC
+
+**Storage Location:**
+- **Contract**: `0xEB5B78Fa81cFEA1a46D46B3a42814F5A68038548`
+- **Network**: Monad Mainnet (EVM-compatible, high-performance)
+- **Cost**: ~$0.01-0.10 per transaction
+
+### **📊 Data Flow**
+
+#### **Inserting a Memory:**
+```
+User submits content
+      ↓
+1. Extract metadata (AI-generated title, summary, tags)
+      ↓
+2. PARALLEL OPERATIONS:
+   ├─→ Kinic/IC: Store full content + embeddings
+   │   • Generate vector embeddings
+   │   • Call IC canister.insert(vectors, text)
+   │   • Returns memory_id
+   │
+   └─→ Monad: Log metadata on-chain
+       • Store title, summary, tags, content_hash
+       • Emit event with transaction hash
+       • Public, queryable record
+      ↓
+Return: {kinic_result, monad_tx, metadata}
+```
+
+#### **Searching Memories:**
+```
+User enters search query
+      ↓
+1. Kinic Semantic Search:
+   • Convert query to embedding vector
+   • Call IC canister.search(query_vector)
+   • Returns: [(similarity_score, text), ...]
+   • Finds content by MEANING (not keywords)
+      ↓
+2. Monad Logging:
+   • Log search operation on-chain
+   • Store: query, timestamp, user
+   • Creates audit trail
+      ↓
+Return: Search results with scores + monad_tx
+```
+
+#### **AI Chat with Memory:**
+```
+User asks question
+      ↓
+1. Retrieve relevant memories (Kinic search)
+      ↓
+2. Build context from top-k results
+      ↓
+3. Send to Claude AI with memory context
+      ↓
+4. Log conversation to Monad
+      ↓
+Return: AI response + memories used + monad_tx
+```
+
+### **🎯 Why This Architecture?**
+
+| Feature | Kinic/IC | Monad | Why Split? |
+|---------|----------|-------|------------|
+| **Full Content** | ✅ Stored | ❌ Too expensive | IC optimized for data storage |
+| **Semantic Search** | ✅ Vector search | ❌ Not supported | IC canister has ML capabilities |
+| **Public Metadata** | ❌ Query-only | ✅ On-chain | Monad has rich query tools |
+| **Audit Trail** | ❌ No events | ✅ Full logs | Monad events are indexable |
+| **Human Browsing** | ❌ Raw data | ✅ Readable | Monad stores structured metadata |
+| **Cost** | $0.000001/op | $0.01-0.10/tx | IC cheaper for storage |
+| **Speed** | ~2-3s | ~1s | Both fast, different purposes |
+
+**Result**: Best of both worlds
+- 🚀 Fast semantic search (Kinic)
+- 📖 Transparent audit trail (Monad)
+- 💰 Cost-effective (right data on right chain)
+- 🔍 Verifiable (content hashes match)
+
+---
+
+## 🏗️ **Architecture
 
 ```
 ┌──────────────────────────────────────┐
@@ -207,12 +351,14 @@ curl https://monad-ai-memory.onrender.com/health
 - **FastAPI** - High-performance Python API
 - **Anthropic Claude** - AI agent (Haiku model)
 - **Web3.py** - Monad blockchain integration
+- **ic-py** - Pure Python Internet Computer client
+- **httpx** - Async HTTP client for Kinic API
 - **Pydantic** - Data validation
 
 ### **Storage & Blockchain**
 - **Internet Computer** - Decentralized semantic storage
-- **Kinic API** - Embedding generation
-- **Monad** - EVM-compatible blockchain
+- **Kinic Embedding API** - Vector embedding generation (https://api.kinic.io)
+- **Monad Mainnet** - EVM-compatible blockchain for metadata
 - **Solidity** - Smart contracts
 
 ### **Frontend**
@@ -229,23 +375,28 @@ curl https://monad-ai-memory.onrender.com/health
 ```
 kinic-monad-poc/
 ├── contracts/
-│   ├── KinicMemoryLog.sol          # Smart contract
+│   ├── KinicMemoryLog.sol          # Monad smart contract
 │   ├── deploy.py                   # Deployment script
 │   └── abi.json                    # Contract ABI (generated)
+│
+├── candid/
+│   └── memory.did                  # IC canister interface definition
 │
 ├── src/
 │   ├── main.py                     # FastAPI application
 │   ├── ai_agent.py                 # Claude AI integration
 │   ├── models.py                   # Pydantic models
 │   ├── metadata.py                 # Metadata extraction
-│   ├── kinic_runner.py             # IC canister client
-│   └── monad.py                    # Monad logger
+│   ├── kinic_client.py             # Pure Python IC client (ic-py)
+│   ├── kinic_runner.py             # Legacy subprocess wrapper (deprecated)
+│   ├── monad.py                    # Monad blockchain logger
+│   └── credential_manager.py       # Secure credential handling
 │
 ├── frontend/
-│   ├── app/                        # Next.js pages
-│   ├── components/                 # React components
-│   ├── lib/                        # API client
-│   └── package.json
+│   ├── app/                        # Next.js pages (Chat, Memories, Dashboard)
+│   ├── components/                 # React components (Nav, etc.)
+│   ├── lib/                        # API client and utilities
+│   └── package.json                # Frontend dependencies
 │
 ├── scripts/
 │   ├── setup_complete.sh           # Full setup wizard
@@ -253,8 +404,9 @@ kinic-monad-poc/
 │   └── setup_ic_identity.sh        # IC identity helper
 │
 ├── requirements.txt                # Python dependencies
-├── Dockerfile                      # Container build
-├── render.yaml                     # Render deployment
+├── Dockerfile                      # Multi-stage build (Node + Python)
+├── render.yaml                     # Render deployment config
+├── .env.example                    # Environment variable template
 └── README.md                       # This file
 ```
 
@@ -285,18 +437,28 @@ cd kinic-monad-poc
 Create environment variables on Render:
 
 ```bash
-# Monad (get your own)
+# Monad Blockchain
 MONAD_RPC_URL=https://rpc-mainnet.monadinfra.com/rpc/YOUR_API_KEY
 MONAD_CONTRACT_ADDRESS=0xYOUR_CONTRACT_ADDRESS
 MONAD_PRIVATE_KEY=0xYOUR_PRIVATE_KEY
 
-# Internet Computer (get IC identity)
+# Internet Computer (Kinic)
 KINIC_MEMORY_ID=your-canister-id
 IC_IDENTITY_PEM=-----BEGIN EC PRIVATE KEY-----\nYOUR_IDENTITY\n-----END EC PRIVATE KEY-----
+IC_URL=https://ic0.app  # Optional, defaults to this
 
-# AI (get from Anthropic)
+# Kinic Embedding API
+EMBEDDING_API_ENDPOINT=https://api.kinic.io  # Optional, defaults to this
+
+# AI Agent
 ANTHROPIC_API_KEY=sk-ant-api03-YOUR_KEY
 ```
+
+**How to get credentials:**
+- **Monad**: Deploy contract using `contracts/deploy.py`
+- **IC Identity**: Generate with `dfx identity export default` (PEM format)
+- **Kinic Canister**: Deploy using `kinic-cli` or use existing canister
+- **Anthropic**: Get API key from https://console.anthropic.com
 
 **Important**: Never commit `.env` files or credentials to git! They are gitignored for security.
 
@@ -335,27 +497,38 @@ Build time: ~8-12 minutes (Rust + Node + Python build)
 
 ## 🧪 **Testing**
 
-### **Test IC Canister** (Already Working!)
+### **Test Live API**
 
 ```bash
-# From Windows PowerShell (where kinic-cli is built)
-cd C:\kinic-cli
+# Health check
+curl https://monad-ai-memory.onrender.com/health
 
 # Insert memory
-.\target\release\kinic-cli.exe --identity kinic_local --ic insert \
-  --memory-id 2x5sz-ciaaa-aaaak-apgta-cai \
-  --text "Test memory" \
-  --tag "test"
+curl -X POST https://monad-ai-memory.onrender.com/insert \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Test memory", "user_tags": "test"}'
 
-# Search
-.\target\release\kinic-cli.exe --identity kinic_local --ic search \
-  --memory-id 2x5sz-ciaaa-aaaak-apgta-cai \
-  --query "test memory"
+# Search (semantic)
+curl -X POST https://monad-ai-memory.onrender.com/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "test", "top_k": 5}'
+
+# AI Chat
+curl -X POST https://monad-ai-memory.onrender.com/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "What do you remember about testing?", "top_k": 3}'
+
+# Stats
+curl https://monad-ai-memory.onrender.com/stats
 ```
 
-### **Test Complete System** (After Monad Deploy)
+### **Test Local Development**
 
 ```bash
+# Run local server
+python -m uvicorn src.main:app --reload --port 8000
+
+# Run tests
 ./scripts/test_local.sh
 ```
 
@@ -385,12 +558,15 @@ struct Memory {
 
 ### **Phase 1: MVP** ✅ COMPLETE
 - ✅ IC canister deployed on Internet Computer
+- ✅ Pure Python IC client (ic-py) - no subprocess dependencies
 - ✅ AI agent integrated (Claude Haiku)
 - ✅ API complete with all endpoints
 - ✅ Monad contract deployed to mainnet
 - ✅ Full deployment on Render.com
 - ✅ Frontend with Chat, Memories, Dashboard pages
-- ✅ Docker multi-stage build (Rust + Node + Python)
+- ✅ Dual-source memory display (Kinic + Monad badges)
+- ✅ Working semantic search with relevance scores
+- ✅ Docker multi-stage build (Node + Python)
 
 ### **Phase 2: Enhancements** (Planned)
 - 🔐 Wallet-based authentication (MetaMask/WalletConnect)
