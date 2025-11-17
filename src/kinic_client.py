@@ -92,17 +92,25 @@ class KinicClient:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     f"{self.embedding_api}/late-chunking",
-                    json={"text": text},
+                    json={"markdown": text},  # API expects "markdown" field
                     timeout=30.0
                 )
                 response.raise_for_status()
                 data = response.json()
 
-                # API should return embeddings list
-                return data.get("embeddings", [])
+                # API returns {"chunks": [{"sentence": "...", "embedding": [...]}]}
+                chunks = data.get("chunks", [])
+                if not chunks:
+                    return []
+
+                # Extract embeddings from chunks
+                embeddings = [chunk["embedding"] for chunk in chunks if "embedding" in chunk]
+                return embeddings
 
         except Exception as e:
             print(f"Embedding API error: {e}")
+            import traceback
+            traceback.print_exc()
             # Return empty list on error
             return []
 
