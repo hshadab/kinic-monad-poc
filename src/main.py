@@ -3,7 +3,14 @@ Kinic Memory Agent - FastAPI Service
 Integrates Kinic (IC) memory storage with Monad blockchain logging
 """
 import os
+import sys
 from dotenv import load_dotenv
+
+# Force UTF-8 encoding for stdout/stderr BEFORE anything else
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')
+if sys.stderr.encoding != 'utf-8':
+    sys.stderr.reconfigure(encoding='utf-8')
 
 # Load environment variables FIRST before any other imports
 load_dotenv()

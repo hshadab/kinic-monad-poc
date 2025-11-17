@@ -71,6 +71,11 @@ RUN mkdir -p /root/.config/dfx/identity/default
 
 # Create startup script to handle IC identity from environment
 RUN echo '#!/bin/bash\n\
+# Force UTF-8 encoding\n\
+export PYTHONIOENCODING=utf-8\n\
+export LANG=C.UTF-8\n\
+export LC_ALL=C.UTF-8\n\
+\n\
 # Write IC identity PEM from environment variable if provided\n\
 if [ ! -z "$IC_IDENTITY_PEM" ]; then\n\
     echo "Writing IC identity from environment variable..."\n\
