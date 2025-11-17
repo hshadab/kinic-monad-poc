@@ -42,7 +42,8 @@ config.local.json
 *~
 
 # Contracts
-contracts/abi.json
+# Note: abi.json is needed for deployment, not a secret
+# contracts/abi.json
 contracts/deployment.json
 
 # Rust / Kinic CLI
