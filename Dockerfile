@@ -36,6 +36,11 @@ RUN npm run build
 # Stage 3: Runtime environment
 FROM python:3.11-slim
 
+# Set UTF-8 encoding for Python to handle Unicode characters in logs
+ENV PYTHONIOENCODING=utf-8
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
