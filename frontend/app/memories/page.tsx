@@ -11,12 +11,17 @@ interface Memory {
   timestamp: number
   contentHash: string
   monadTx: string
+  source?: 'kinic' | 'monad'  // Track data source
+  fullContent?: string  // Full content from Kinic
+  searchScore?: number  // Relevance score from Kinic search
 }
 
 export default function Memories() {
   const [memories, setMemories] = useState<Memory[]>([])
   const [loading, setLoading] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [searchMode, setSearchMode] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Form state
   const [content, setContent] = useState('')
@@ -32,6 +37,9 @@ export default function Memories() {
   const loadMemories = async () => {
     try {
       setLoading(true)
+      setSearchMode(false)
+      setSearchQuery('')
+
       // Fetch memories from Monad blockchain
       const response = await fetch('/list-memories?limit=20')
       if (!response.ok) throw new Error('Failed to fetch memories')
@@ -45,7 +53,9 @@ export default function Memories() {
         tags: m.tags,
         timestamp: m.timestamp,
         contentHash: m.contentHash,
-        monadTx: ''
+        monadTx: '',
+        source: 'monad' as const,
+        fullContent: m.summary  // Monad stores summary, not full content
       }))
 
       setMemories(formattedMemories)
@@ -87,23 +97,36 @@ export default function Memories() {
   }
 
   const handleSearch = async (query: string) => {
-    if (!query.trim()) return
+    if (!query.trim()) {
+      loadMemories()
+      return
+    }
 
     try {
       setLoading(true)
+      setSearchMode(true)
+      setError(null)
+
       const results = await memoryAPI.searchMemories(query, 10)
 
-      // Convert search results to Memory format
+      // Convert Kinic search results to Memory format
       const formattedMemories = results.map((r: any) => ({
-        title: r.text.slice(0, 50) + '...',
-        summary: r.text,
+        title: r.text.slice(0, 60) + (r.text.length > 60 ? '...' : ''),
+        summary: r.text.slice(0, 200) + (r.text.length > 200 ? '...' : ''),
         tags: r.tag || '',
         timestamp: Date.now() / 1000,
         contentHash: '',
-        monadTx: ''
+        monadTx: '',
+        source: 'kinic' as const,
+        fullContent: r.text,  // Full content from Kinic
+        searchScore: r.score  // Relevance score
       }))
 
       setMemories(formattedMemories)
+
+      if (formattedMemories.length === 0) {
+        setError('No results found. Try a different search term.')
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed')
     } finally {
@@ -210,19 +233,37 @@ export default function Memories() {
           <div className="flex gap-4">
             <input
               type="text"
-              placeholder="Search your memories..."
+              placeholder="Search your memories with Kinic AI..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="flex-1 bg-white border-4 border-black px-4 py-3 text-kinic-dark font-medium"
               style={{ boxShadow: '4px 4px 0 0 #000' }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
-                  handleSearch(e.currentTarget.value)
+                  handleSearch(searchQuery)
                 }
               }}
             />
-            <button className="btn-brutalist px-6 py-3 bg-kinic-cyan text-white">
+            <button
+              onClick={() => handleSearch(searchQuery)}
+              className="btn-brutalist px-6 py-3 bg-kinic-cyan text-white"
+            >
               Search
             </button>
+            {searchMode && (
+              <button
+                onClick={loadMemories}
+                className="btn-brutalist px-6 py-3 bg-white text-kinic-dark"
+              >
+                Show All
+              </button>
+            )}
           </div>
+          {searchMode && (
+            <div className="mt-4 text-sm font-bold text-kinic-dark">
+              Showing semantic search results from Kinic
+            </div>
+          )}
         </div>
 
         {/* Memories List */}
@@ -257,17 +298,44 @@ export default function Memories() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {memories.map((memory, idx) => (
               <div key={idx} className="card-hover">
+                {/* Header with source badge */}
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="text-lg font-black text-kinic-dark uppercase">{memory.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-black text-kinic-dark uppercase">{memory.title}</h3>
+                  </div>
                   <span className="text-xs font-bold text-kinic-text-secondary uppercase">
                     {new Date(memory.timestamp * 1000).toLocaleDateString()}
                   </span>
                 </div>
 
+                {/* Source badge */}
+                <div className="flex gap-2 mb-3">
+                  <span
+                    className={`px-2 py-1 text-xs font-bold uppercase border-2 border-black ${
+                      memory.source === 'kinic'
+                        ? 'bg-kinic-orange text-white'
+                        : 'bg-kinic-purple text-white'
+                    }`}
+                    style={{ boxShadow: '2px 2px 0 0 #000' }}
+                  >
+                    {memory.source === 'kinic' ? 'IC/Kinic' : 'Monad Chain'}
+                  </span>
+                  {memory.searchScore !== undefined && (
+                    <span
+                      className="px-2 py-1 bg-white text-kinic-dark text-xs font-bold uppercase border-2 border-black"
+                      style={{ boxShadow: '2px 2px 0 0 #000' }}
+                    >
+                      Score: {memory.searchScore.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Content */}
                 <p className="text-sm font-medium text-kinic-text-secondary mb-4 line-clamp-3">
                   {memory.summary}
                 </p>
 
+                {/* Tags */}
                 {memory.tags && (
                   <div className="flex flex-wrap gap-2 mb-4">
                     {memory.tags.split(',').filter(Boolean).map((tag, i) => (
@@ -282,10 +350,23 @@ export default function Memories() {
                   </div>
                 )}
 
-                {memory.monadTx && (
+                {/* Monad metadata */}
+                {memory.source === 'monad' && memory.contentHash && (
                   <div className="text-xs font-mono font-bold text-kinic-text-secondary">
-                    {memory.monadTx.slice(0, 20)}...
+                    Hash: {memory.contentHash.slice(0, 20)}...
                   </div>
+                )}
+
+                {/* Full content preview for Kinic */}
+                {memory.source === 'kinic' && memory.fullContent && memory.fullContent.length > memory.summary.length && (
+                  <details className="mt-2">
+                    <summary className="text-xs font-bold text-kinic-dark uppercase cursor-pointer">
+                      Show Full Content
+                    </summary>
+                    <p className="text-xs font-medium text-kinic-text-secondary mt-2 p-2 bg-white border-2 border-black">
+                      {memory.fullContent}
+                    </p>
+                  </details>
                 )}
               </div>
             ))}
