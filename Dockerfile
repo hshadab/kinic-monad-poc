@@ -1,6 +1,6 @@
 # Multi-stage build for Kinic Memory Agent on Monad
 # Stage 1: Build kinic-cli (Rust)
-FROM rust:1.83-slim as builder
+FROM rustlang/rust:nightly-slim as builder
 
 # Install dependencies
 RUN apt-get update && apt-get install -y \
