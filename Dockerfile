@@ -52,7 +52,6 @@ RUN chmod +x /app/kinic-cli/target/release/kinic-cli
 
 # Copy Next.js built frontend from frontend-builder
 COPY --from=frontend-builder /frontend/out /app/frontend/out
-COPY --from=frontend-builder /frontend/public /app/frontend/public
 
 # Copy Python requirements and install
 COPY requirements.txt .
