@@ -19,11 +19,13 @@ export default function Nav() {
         <div className="flex justify-between h-16 items-center">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-monad flex items-center justify-center border-3 border-black" style={{ boxShadow: '3px 3px 0 0 #000' }}>
-              <span className="text-white font-black text-xl">K</span>
-            </div>
+            <img
+              src="https://cdn.prod.website-files.com/6712749157ea3bf4a781f309/671bbee00d9198b08a63cb40_kinic-logo.svg"
+              alt="Kinic Logo"
+              className="h-10 w-auto"
+            />
             <span className="text-2xl font-black text-kinic-dark uppercase tracking-tight">
-              Kinic <span className="text-gradient">Memory</span>
+              AI <span className="text-gradient">MEMORY AGENT</span>
             </span>
           </Link>
 
