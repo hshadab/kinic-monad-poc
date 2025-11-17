@@ -1,20 +1,14 @@
 import axios from 'axios';
 
-// Create axios instance without baseURL - we'll set it at runtime
+// No baseURL needed - API is served from same domain
+// Use relative URLs: /insert, /search, /chat, etc.
 const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Set baseURL dynamically at runtime (not during build)
-// This runs in the browser, not during Next.js static build
-if (typeof window !== 'undefined') {
-  // In browser: use environment variable or current origin
-  const baseURL = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-  api.defaults.baseURL = baseURL;
-  console.log('API configured with baseURL:', baseURL);
-}
+console.log('API client configured (using same-origin relative URLs)');
 
 export interface ChatRequest {
   message: string;
