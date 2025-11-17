@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// For production: use same domain (relative URLs)
+// For development: use localhost:8000
+const API_URL = process.env.NEXT_PUBLIC_API_URL === undefined
+  ? 'http://localhost:8000'  // Development
+  : process.env.NEXT_PUBLIC_API_URL;  // Production (can be empty string for same domain)
 
 const api = axios.create({
   baseURL: API_URL,
