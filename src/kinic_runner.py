@@ -163,7 +163,7 @@ class KinicRunner:
         """
         # Log command (without full paths for cleanliness)
         cmd_str = " ".join([c if not c.startswith("/") else Path(c).name for c in cmd])
-        print(f"🔧 Running: {cmd_str}")
+        print(f" Running: {cmd_str}")
 
         # Create subprocess
         process = await asyncio.create_subprocess_exec(

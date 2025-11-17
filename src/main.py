@@ -39,14 +39,14 @@ async def lifespan(app: FastAPI):
     global kinic, monad, ai_agent
 
     print("\n" + "="*60)
-    print("🚀 Starting Kinic Memory Agent on Monad")
+    print("Starting Kinic Memory Agent on Monad")
     print("="*60)
 
     # Get credential manager
     cred_mgr = get_credential_manager()
 
     # Load configuration from keyring with fallback to environment variables
-    print("\n🔐 Loading credentials from OS keyring...")
+    print("\nLoading credentials from OS keyring...")
     memory_id = cred_mgr.get_credential(CredentialKey.KINIC_MEMORY_ID, fallback_env_var="KINIC_MEMORY_ID")
     identity = cred_mgr.get_credential(CredentialKey.IC_IDENTITY_NAME, fallback_env_var="IC_IDENTITY_NAME") or "default"
     monad_rpc = cred_mgr.get_credential(CredentialKey.MONAD_RPC_URL, fallback_env_var="MONAD_RPC_URL") or "https://testnet-rpc.monad.xyz"
@@ -64,14 +64,14 @@ async def lifespan(app: FastAPI):
     if not anthropic_key:
         raise ValueError("ANTHROPIC_API_KEY not found in keyring or environment variables. Run setup_credentials.py first.")
 
-    print(" Credentials loaded successfully")
+    print("Credentials loaded successfully")
 
     # Initialize Kinic runner
-    print("\n📦 Initializing Kinic Runner...")
+    print("\nInitializing Kinic Runner...")
     kinic = KinicRunner(memory_id=memory_id, identity=identity)
 
     # Initialize Monad logger
-    print("\n🔗 Initializing Monad Logger...")
+    print("\nInitializing Monad Logger...")
     monad = MonadLogger(
         rpc_url=monad_rpc,
         private_key=monad_key,
@@ -79,20 +79,20 @@ async def lifespan(app: FastAPI):
     )
 
     # Initialize AI Agent
-    print("\n🤖 Initializing AI Agent (Claude Haiku)...")
+    print("\nInitializing AI Agent (Claude Haiku)...")
     ai_agent = AIAgent(
         api_key=anthropic_key,
         model="claude-3-haiku-20240307"  # Fast and cheap
     )
 
     print("\n" + "="*60)
-    print(" All services initialized successfully!")
+    print("All services initialized successfully!")
     print("="*60 + "\n")
 
     yield
 
     # Cleanup on shutdown
-    print("\n👋 Shutting down...")
+    print("\nShutting down...")
 
 
 # Create FastAPI app
@@ -159,7 +159,7 @@ async def insert_memory(request: InsertRequest):
         raise HTTPException(status_code=503, detail="Services not initialized")
 
     try:
-        print(f"\n📝 INSERT request received ({len(request.content)} chars)")
+        print(f"\n INSERT request received ({len(request.content)} chars)")
 
         # 1. Insert into Kinic memory (Internet Computer)
         print("  -> Storing in Kinic...")
@@ -220,7 +220,7 @@ async def search_memory(request: SearchRequest):
         raise HTTPException(status_code=503, detail="Services not initialized")
 
     try:
-        print(f"\n🔍 SEARCH request: '{request.query}'")
+        print(f"\n SEARCH request: '{request.query}'")
 
         # 1. Search Kinic memory
         print("  -> Searching Kinic...")
@@ -302,7 +302,7 @@ async def chat_with_agent(request: ChatRequest):
         raise HTTPException(status_code=503, detail="Services not initialized")
 
     try:
-        print(f"\n💬 CHAT request: '{request.message[:50]}...'")
+        print(f"\n CHAT request: '{request.message[:50]}...'")
 
         # 1. Search Kinic for relevant context
         print("  -> Searching Kinic for context...")
@@ -407,7 +407,7 @@ else:
 if __name__ == "__main__":
     import uvicorn
 
-    print("🧪 Running in development mode...")
+    print(" Running in development mode...")
     print("  Make sure you have set all required environment variables!\n")
 
     uvicorn.run(

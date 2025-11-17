@@ -85,12 +85,12 @@ export default function Home() {
 
           <div className="grid md:grid-cols-4 gap-6 text-center">
             <div className="p-6">
-              <div className="text-4xl mb-2">🧠</div>
+              <div className="text-4xl mb-2"></div>
               <h4 className="font-semibold text-kinic-dark mb-1">Claude AI</h4>
               <p className="text-sm text-kinic-text-secondary">Anthropic Haiku</p>
             </div>
             <div className="p-6">
-              <div className="text-4xl mb-2">🔍</div>
+              <div className="text-4xl mb-2"></div>
               <h4 className="font-semibold text-kinic-dark mb-1">Kinic</h4>
               <p className="text-sm text-kinic-text-secondary">Semantic Storage</p>
             </div>
@@ -100,7 +100,7 @@ export default function Home() {
               <p className="text-sm text-kinic-text-secondary">High-Speed Blockchain</p>
             </div>
             <div className="p-6">
-              <div className="text-4xl mb-2">🌐</div>
+              <div className="text-4xl mb-2"></div>
               <h4 className="font-semibold text-kinic-dark mb-1">Internet Computer</h4>
               <p className="text-sm text-kinic-text-secondary">Decentralized Compute</p>
             </div>

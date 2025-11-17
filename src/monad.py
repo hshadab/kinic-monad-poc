@@ -31,7 +31,7 @@ class MonadLogger:
             contract_address: Deployed KinicMemoryLog contract address
             abi_path: Path to contract ABI JSON file
         """
-        print(f"🔗 Connecting to Monad at {rpc_url}...")
+        print(f" Connecting to Monad at {rpc_url}...")
 
         # Configure HTTP provider with timeout for Windows compatibility
         from web3.providers import HTTPProvider
@@ -53,7 +53,7 @@ class MonadLogger:
 
         # Set up account
         self.account = Account.from_key(private_key)
-        print(f"📝 Using account: {self.account.address}")
+        print(f" Using account: {self.account.address}")
 
         # Load contract ABI
         abi_full_path = Path(abi_path)
@@ -69,7 +69,7 @@ class MonadLogger:
             abi=abi
         )
 
-        print(f"📜 Contract loaded at: {contract_address}")
+        print(f" Contract loaded at: {contract_address}")
 
     async def log_insert(
         self,
@@ -146,7 +146,7 @@ class MonadLogger:
 
         content_hash_bytes = bytes.fromhex(content_hash)
 
-        print(f"📝 Logging to Monad: opType={op_type}, title='{title[:30]}...'")
+        print(f" Logging to Monad: opType={op_type}, title='{title[:30]}...'")
 
         # Build transaction
         try:
@@ -172,7 +172,7 @@ class MonadLogger:
         # Send transaction
         try:
             tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
-            print(f"📡 Transaction sent: {tx_hash.hex()}")
+            print(f" Transaction sent: {tx_hash.hex()}")
         except Exception as e:
             print(f" Error sending transaction: {e}")
             raise
@@ -252,6 +252,6 @@ if __name__ == "__main__":
 
         # Get stats
         total = logger.get_total_memories()
-        print(f"📊 Total memories on-chain: {total}")
+        print(f" Total memories on-chain: {total}")
 
     asyncio.run(test())
