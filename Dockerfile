@@ -31,9 +31,6 @@ COPY frontend/. ./
 # Set API URL for production build (same domain for API calls)
 ENV NEXT_PUBLIC_API_URL=''
 
-# Debug: List files to verify copy
-RUN ls -la && ls -la lib/ && ls -la app/
-
 RUN npm run build
 
 # Stage 3: Runtime environment
