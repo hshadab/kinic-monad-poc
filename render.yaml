@@ -4,16 +4,16 @@ services:
     runtime: docker
     plan: starter
     region: oregon
-    repo: https://github.com/YOUR_USERNAME/kinic-monad-poc  # Update with your repo
-    branch: main
+    repo: https://github.com/hshadab/kinic-monad-poc
+    branch: master
     dockerfilePath: ./Dockerfile
     envVars:
       # Monad Configuration
       - key: MONAD_RPC_URL
-        value: https://testnet-rpc.monad.xyz
+        sync: false  # Set in Render dashboard (private mainnet RPC)
 
       - key: MONAD_CONTRACT_ADDRESS
-        sync: false  # Set in Render dashboard after deployment
+        sync: false  # Set in Render dashboard
 
       - key: MONAD_PRIVATE_KEY
         sync: false  # Secret - set in Render dashboard
@@ -23,10 +23,14 @@ services:
         sync: false  # Your deployed memory canister ID
 
       - key: IC_IDENTITY_NAME
-        value: default
+        value: kinic_local
 
       - key: IC_IDENTITY_PEM
-        sync: false  # Secret - base64 encoded PEM file
+        sync: false  # Secret - base64 encoded PEM file (optional)
+
+      # Anthropic AI
+      - key: ANTHROPIC_API_KEY
+        sync: false  # Secret - set in Render dashboard
 
       # Python/Runtime
       - key: PYTHONUNBUFFERED

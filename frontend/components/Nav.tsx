@@ -8,6 +8,7 @@ export default function Nav() {
 
   const links = [
     { href: '/', label: 'Home' },
+    { href: '/memories', label: 'Memories' },
     { href: '/chat', label: 'Chat' },
     { href: '/dashboard', label: 'Dashboard' },
   ]

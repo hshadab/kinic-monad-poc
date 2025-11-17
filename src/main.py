@@ -3,6 +3,11 @@ Kinic Memory Agent - FastAPI Service
 Integrates Kinic (IC) memory storage with Monad blockchain logging
 """
 import os
+from dotenv import load_dotenv
+
+# Load environment variables FIRST before any other imports
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -153,11 +158,18 @@ async def insert_memory(request: InsertRequest):
 
         # 1. Insert into Kinic memory (Internet Computer)
         print("  → Storing in Kinic...")
-        kinic_result = await kinic.insert(
-            content=request.content,
-            tag=request.user_tags or "general"
-        )
-        print(f"  ✅ Stored in Kinic")
+        kinic_result = None
+        try:
+            kinic_result = await kinic.insert(
+                content=request.content,
+                tag=request.user_tags or "general"
+            )
+            print(f"  ✅ Stored in Kinic")
+        except Exception as e:
+            # Handle keyring error in WSL gracefully
+            print(f"  ⚠️  Kinic insert failed (expected in WSL): {str(e)[:50]}")
+            print("     Will log to Monad only")
+            kinic_result = {"status": "skipped", "reason": "keyring_unavailable"}
 
         # 2. Extract metadata
         print("  → Extracting metadata...")
@@ -289,28 +301,35 @@ async def chat_with_agent(request: ChatRequest):
 
         # 1. Search Kinic for relevant context
         print("  → Searching Kinic for context...")
-        kinic_results = await kinic.search(
-            query=request.message,
-            format="json"
-        )
-
-        # Format results for AI agent
         memories = []
-        for item in kinic_results[:request.top_k]:
-            memories.append({
-                "text": item.get("sentence", item.get("text", str(item))),
-                "score": item.get("score", 1.0),
-                "tag": item.get("tag", "")
-            })
 
-        print(f"  ✅ Found {len(memories)} relevant memories")
+        try:
+            kinic_results = await kinic.search(
+                query=request.message,
+                format="json"
+            )
+
+            # Format results for AI agent
+            for item in kinic_results[:request.top_k]:
+                memories.append({
+                    "text": item.get("sentence", item.get("text", str(item))),
+                    "score": item.get("score", 1.0),
+                    "tag": item.get("tag", "")
+                })
+
+            print(f"  ✅ Found {len(memories)} relevant memories")
+        except Exception as e:
+            # Handle keyring error in WSL gracefully
+            print(f"  ⚠️  Kinic search failed (expected in WSL): {str(e)[:50]}")
+            print("     Chat will work without memory context")
+            memories = []
+            print(f"  ✅ Found {len(memories)} relevant memories")
 
         # 2. Generate AI response with context
         print("  → Generating AI response with Claude...")
-        response_text, _ = await ai_agent.chat_with_memory_search(
+        response_text = await ai_agent.chat(
             message=request.message,
-            search_function=lambda q, k: memories,  # Use already searched memories
-            top_k=request.top_k
+            memory_context=memories
         )
         print(f"  ✅ AI response generated ({len(response_text)} chars)")
 

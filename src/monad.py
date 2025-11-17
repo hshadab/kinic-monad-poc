@@ -33,10 +33,21 @@ class MonadLogger:
         """
         print(f"🔗 Connecting to Monad at {rpc_url}...")
 
-        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+        # Configure HTTP provider with timeout for Windows compatibility
+        from web3.providers import HTTPProvider
+        provider = HTTPProvider(
+            rpc_url,
+            request_kwargs={'timeout': 30}  # 30 second timeout
+        )
+        self.w3 = Web3(provider)
 
-        if not self.w3.is_connected():
-            raise Exception(f"Failed to connect to Monad at {rpc_url}")
+        try:
+            if not self.w3.is_connected():
+                raise Exception(f"Failed to connect to Monad at {rpc_url}")
+        except Exception as e:
+            print(f"❌ Connection error: {str(e)}")
+            print(f"   This may be a Windows Firewall or SSL certificate issue")
+            raise Exception(f"Failed to connect to Monad at {rpc_url}: {str(e)}")
 
         print(f"✅ Connected to Monad! Chain ID: {self.w3.eth.chain_id}")
 

@@ -30,11 +30,15 @@ class KinicRunner:
 
         # Auto-detect CLI path
         if cli_path is None:
-            # Try common locations
+            # Try common locations (Windows .exe first, then Unix)
             possible_paths = [
-                "./kinic-cli/target/release/kinic-cli",
+                "./kinic-cli/target/release/kinic-cli.exe",  # Windows
+                "./kinic-cli/target/release/kinic-cli",      # Unix/WSL
+                "/app/kinic-cli/target/release/kinic-cli.exe",
                 "/app/kinic-cli/target/release/kinic-cli",
+                "./kinic-cli.exe",
                 "./kinic-cli",
+                "kinic-cli.exe",
                 "kinic-cli"
             ]
             for path in possible_paths:
