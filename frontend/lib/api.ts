@@ -83,14 +83,28 @@ export const chatAPI = {
 
 export const memoryAPI = {
   insert: async (request: InsertRequest): Promise<InsertResponse> => {
-    const { data } = await api.post('/insert', request);
-    return data;
+    try {
+      const { data } = await api.post('/insert', request);
+      return data;
+    } catch (error: any) {
+      console.error('Insert API error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw new Error(error.response?.data?.detail || error.message || 'Insert failed');
+    }
   },
 
   // Convenience method with simpler signature
   insertMemory: async (content: string, tags?: string): Promise<InsertResponse> => {
-    const { data } = await api.post('/insert', { content, user_tags: tags });
-    return data;
+    try {
+      const { data } = await api.post('/insert', { content, user_tags: tags });
+      return data;
+    } catch (error: any) {
+      console.error('InsertMemory API error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      throw new Error(error.response?.data?.detail || error.message || 'Failed to insert memory');
+    }
   },
 
   search: async (request: SearchRequest): Promise<SearchResponse> => {
