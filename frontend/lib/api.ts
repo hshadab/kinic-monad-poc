@@ -1,23 +1,20 @@
 import axios from 'axios';
 
-// For production: use same domain (current window origin)
-// For development: use localhost:8000
-// Check if we're in browser (window exists) vs SSR
-const isBrowser = typeof window !== 'undefined';
-const API_URL = process.env.NEXT_PUBLIC_API_URL
-  ? process.env.NEXT_PUBLIC_API_URL
-  : isBrowser
-    ? window.location.origin  // Production: use current domain
-    : 'http://localhost:8000';  // Development/SSR
-
+// Create axios instance without baseURL - we'll set it at runtime
 const api = axios.create({
-  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-console.log('API configured with baseURL:', API_URL);
+// Set baseURL dynamically at runtime (not during build)
+// This runs in the browser, not during Next.js static build
+if (typeof window !== 'undefined') {
+  // In browser: use environment variable or current origin
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+  api.defaults.baseURL = baseURL;
+  console.log('API configured with baseURL:', baseURL);
+}
 
 export interface ChatRequest {
   message: string;
