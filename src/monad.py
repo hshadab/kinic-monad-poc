@@ -4,6 +4,7 @@ Monad blockchain connector for logging memory metadata
 import os
 import json
 import asyncio
+import time
 from pathlib import Path
 from web3 import Web3
 from eth_account import Account
@@ -34,12 +35,41 @@ class MonadLogger:
         """
         print(f"Connecting to Monad at {rpc_url}...")
 
-        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
+        # Create HTTP provider with timeout
+        from web3.providers import HTTPProvider
+        from web3.middleware import geth_poa_middleware
 
-        if not self.w3.is_connected():
-            raise Exception(f"Failed to connect to Monad at {rpc_url}")
+        provider = HTTPProvider(
+            rpc_url,
+            request_kwargs={'timeout': 30}  # 30 second timeout
+        )
+        self.w3 = Web3(provider)
 
-        print(f"Connected to Monad! Chain ID: {self.w3.eth.chain_id}")
+        # Add PoA middleware (some chains need this)
+        self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+        # Try connecting with retries
+        max_retries = 3
+        retry_delay = 2  # seconds
+
+        for attempt in range(max_retries):
+            try:
+                if self.w3.is_connected():
+                    print(f"✅ Connected to Monad! Chain ID: {self.w3.eth.chain_id}")
+                    break
+                else:
+                    # Try to get chain_id as an alternative connectivity check
+                    chain_id = self.w3.eth.chain_id
+                    print(f"✅ Connected to Monad! Chain ID: {chain_id}")
+                    break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    print(f"⚠️  Connection attempt {attempt + 1} failed: {e}")
+                    print(f"   Retrying in {retry_delay}s...")
+                    time.sleep(retry_delay)
+                else:
+                    print(f"❌ Failed to connect to Monad after {max_retries} attempts")
+                    raise Exception(f"Failed to connect to Monad at {rpc_url}: {e}")
 
         # Set up account
         self.account = Account.from_key(private_key)
