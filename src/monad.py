@@ -37,7 +37,6 @@ class MonadLogger:
 
         # Create HTTP provider with timeout
         from web3.providers import HTTPProvider
-        from web3.middleware import geth_poa_middleware
 
         provider = HTTPProvider(
             rpc_url,
@@ -45,8 +44,7 @@ class MonadLogger:
         )
         self.w3 = Web3(provider)
 
-        # Add PoA middleware (some chains need this)
-        self.w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+        # Note: PoA middleware removed in web3.py 7.x - not needed for Monad
 
         # Try connecting with retries
         max_retries = 3
