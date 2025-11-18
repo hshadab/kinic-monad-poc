@@ -18,11 +18,13 @@ Get your Kinic AI Memory Agent on Monad running!
 
 - Python 3.11+
 - Anthropic API key (for Claude AI agent)
-- Monad wallet: `0xDA9f4e4C9596a1dA338164FD22895D8C167C6Bd6` (waiting for tokens)
+- Monad wallet with tokens
+- IC identity PEM (for Internet Computer access)
 
-**Optional (for development):**
-- Rust nightly (kinic-cli already built on Windows at `C:\kinic-cli`)
-- DFX CLI (IC identity already configured)
+**No longer needed:**
+- ✅ ~~Rust nightly~~ - Pure Python implementation!
+- ✅ ~~kinic-cli binary~~ - Uses ic-py library instead
+- ✅ ~~DFX CLI~~ - PEM string is enough
 
 ## Quick Test (Current State)
 
@@ -72,24 +74,33 @@ nano .env  # Add the MONAD_CONTRACT_ADDRESS
 ./scripts/test_local.sh
 ```
 
-## Test IC Canister (Already Working!)
+## Test IC Canister (Pure Python!)
 
-From Windows PowerShell where kinic-cli is built:
+No Rust binary needed! Test directly through the API:
 
-```powershell
-cd C:\kinic-cli
+```bash
+# Test insert
+curl -X POST http://localhost:8000/insert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Test memory from quickstart",
+    "user_tags": "test,quickstart"
+  }'
 
-# Insert test memory
-.\target\release\kinic-cli.exe --identity kinic_local --ic insert `
-  --memory-id 2x5sz-ciaaa-aaaak-apgta-cai `
-  --text "Test memory from quickstart" `
-  --tag "test,quickstart"
-
-# Search memories
-.\target\release\kinic-cli.exe --identity kinic_local --ic search `
-  --memory-id 2x5sz-ciaaa-aaaak-apgta-cai `
-  --query "test memory"
+# Test search
+curl -X POST http://localhost:8000/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "test memory",
+    "top_k": 5
+  }'
 ```
+
+**Pure Python under the hood:**
+- Uses `ic-py` library for IC communication
+- Direct Candid encoding/decoding
+- No subprocess calls
+- Faster and simpler!
 
 ## Deploy to Render (After Monad Contract)
 
@@ -297,18 +308,12 @@ Response:
 
 ## Troubleshooting
 
-**"kinic-cli binary not found"**
+**"ic-py import error"**
 
-On Windows (where it's already built):
-```powershell
-cd C:\kinic-cli
-# Check if binary exists
-ls .\target\release\kinic-cli.exe
-```
-
-From WSL/Ubuntu, you can access it:
+Install dependencies:
 ```bash
-/mnt/c/kinic-cli/target/release/kinic-cli.exe --help
+pip install -r requirements.txt
+# This installs ic-py>=2.0.0 from PyPI
 ```
 
 **"Failed to connect to Monad"**
@@ -322,14 +327,18 @@ curl https://rpc-mainnet.monadinfra.com/rpc/YOUR_KEY \
 
 **"IC identity not found"**
 
-On Windows:
-```powershell
-# Check identity exists
-ls C:\Users\hshad\.config\dfx\identity\kinic_local\identity.pem
+Make sure you have `IC_IDENTITY_PEM` in your `.env`:
+```bash
+IC_IDENTITY_PEM=-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEII...
+-----END EC PRIVATE KEY-----
+```
 
-# Verify stored in Windows Credential Manager
-cd C:\kinic-cli
-.\target\release\store_identity.exe kinic_local C:\Users\hshad\.config\dfx\identity\kinic_local\identity.pem
+Get your identity PEM:
+```bash
+# If you have dfx installed
+dfx identity export default > identity.pem
+cat identity.pem  # Copy this to IC_IDENTITY_PEM
 ```
 
 **"Anthropic API key invalid"**
