@@ -21,13 +21,11 @@ WORKDIR /build
 RUN git clone -b poc https://github.com/ICME-Lab/kinic-cli.git
 WORKDIR /build/kinic-cli
 
-# Install maturin for building Python bindings
-RUN pip install --no-cache-dir maturin setuptools-rust setuptools wheel
+# Install build tools
+RUN pip install --no-cache-dir setuptools-rust setuptools wheel
 
-# Build kinic-py Python package (PyO3 bindings)
-RUN cd /build/kinic-cli && \
-    pip install setuptools-rust && \
-    pip install -e .
+# Build kinic-py wheel package
+RUN pip wheel --no-deps --wheel-dir /build/wheels .
 
 # Stage 2: Build Next.js frontend
 FROM node:18-slim as frontend-builder
@@ -62,8 +60,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy kinic-cli source for editable install
-COPY --from=builder /build/kinic-cli /app/kinic-cli
+# Copy built kinic-py wheel from builder
+COPY --from=builder /build/wheels/*.whl /tmp/
 
 # Copy Next.js built frontend from frontend-builder
 COPY --from=frontend-builder /frontend/out /app/frontend/out
@@ -72,10 +70,8 @@ COPY --from=frontend-builder /frontend/out /app/frontend/out
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install kinic-py from the copied source
-RUN pip install setuptools-rust && \
-    cd /app/kinic-cli && \
-    pip install -e .
+# Install kinic-py from the pre-built wheel
+RUN pip install --no-cache-dir /tmp/*.whl && rm -rf /tmp/*.whl
 
 # Copy application code
 COPY src/ ./src/
@@ -104,7 +100,7 @@ else\n\
 fi\n\
 \n\
 # Verify kinic_py is installed\n\
-python3 -c "import kinic_py; print(\"kinic_py version:\", kinic_py.__version__)" || echo "WARNING: kinic_py not installed"\n\
+python3 -c "import kinic_py; print(\"✅ kinic_py version:\", kinic_py.__version__)" || echo "WARNING: kinic_py not installed"\n\
 \n\
 # Start the application\n\
 exec uvicorn src.main:app --host 0.0.0.0 --port 8000\n\
