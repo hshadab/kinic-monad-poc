@@ -8,6 +8,8 @@ from typing import List
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 
 # Load environment variables from .env file in project root
@@ -136,16 +138,18 @@ app.add_middleware(
 )
 
 
-@app.get("/", response_model=dict)
-async def root():
-    """Root endpoint"""
+@app.get("/api", response_model=dict)
+async def api_info():
+    """API information endpoint"""
     return {
         "service": "Kinic Memory Agent on Monad",
         "status": "running",
         "endpoints": {
             "insert": "POST /insert",
             "search": "POST /search",
-            "health": "GET /health"
+            "health": "GET /health",
+            "chat": "POST /chat",
+            "stats": "GET /stats"
         }
     }
 
@@ -517,6 +521,46 @@ async def refresh_monad_cache():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# FRONTEND STATIC FILES
+# ============================================================================
+
+# Mount static assets (_next folder with JS/CSS)
+frontend_path = Path(__file__).parent.parent / "frontend" / "out"
+if frontend_path.exists():
+    app.mount("/_next", StaticFiles(directory=frontend_path / "_next"), name="static")
+
+    # Serve specific HTML pages
+    @app.get("/chat")
+    async def serve_chat():
+        return FileResponse(frontend_path / "chat.html")
+
+    @app.get("/memories")
+    async def serve_memories():
+        return FileResponse(frontend_path / "memories.html")
+
+    @app.get("/dashboard")
+    async def serve_dashboard():
+        return FileResponse(frontend_path / "dashboard.html")
+
+    @app.get("/discover")
+    async def serve_discover():
+        return FileResponse(frontend_path / "discover.html")
+
+    # Serve index.html for root
+    @app.get("/")
+    async def serve_root():
+        return FileResponse(frontend_path / "index.html")
+
+    # Catch-all for SPA routing (404 fallback to index.html)
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Don't intercept API routes
+        if full_path.startswith(("api/", "health", "stats", "insert", "search")):
+            raise HTTPException(status_code=404, detail="Not found")
+        return FileResponse(frontend_path / "index.html")
 
 
 # Run locally for testing

@@ -37,7 +37,7 @@ services:
         sync: false  # Optional API key for authentication - set in Render dashboard
 
       - key: ALLOWED_ORIGINS
-        value: "https://monad-ai-memory.onrender.com"  # Comma-separated allowed CORS origins
+        value: "https://kinicmemory.com,https://www.kinicmemory.com,https://monad-ai-memory.onrender.com"  # Comma-separated allowed CORS origins
 
       # Python/Runtime
       - key: PYTHONUNBUFFERED
