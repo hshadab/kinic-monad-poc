@@ -192,7 +192,7 @@ cat > mainnet/KinicMemoryAgent.json << 'EOF'
     "KinicMemoryLog": "0xEB5B78Fa81cFEA1a46D46B3a42814F5A68038548"
   },
   "links": {
-    "project": "https://monad-ai-memory.onrender.com",
+    "project": "https://kinicmemory.com",
     "github": "https://github.com/hshadab/kinic-monad-poc",
     "docs": "https://github.com/hshadab/kinic-monad-poc/blob/master/README.md"
   }
@@ -326,7 +326,7 @@ git commit -m "Add Kinic AI Memory Agent to mainnet protocols
 
 - AI-powered memory system with semantic search
 - Integrates Kinic/Internet Computer and Monad blockchain
-- Live deployment: https://monad-ai-memory.onrender.com
+- Live deployment: https://kinicmemory.com
 - Smart contract: 0xEB5B78Fa81cFEA1a46D46B3a42814F5A68038548
 - Categories: Apps::AI, Infra::Storage
 
@@ -427,7 +427,7 @@ AI-powered memory system that combines:
 
 ## Deployment Details
 
-- **Live Application:** https://monad-ai-memory.onrender.com
+- **Live Application:** https://kinicmemory.com
 - **Smart Contract:** \`0xEB5B78Fa81cFEA1a46D46B3a42814F5A68038548\`
 - **Deployer Address:** \`0xDA9f4e4C9596a1dA338164FD22895D8C167C6Bd6\`
 - **Deployment TX:** \`0xf694177f5f0c2d90674a4167d99b09350ba106cfea316dfee7c38d05ff53a716\`
