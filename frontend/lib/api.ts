@@ -13,6 +13,7 @@ console.log('API client configured (using same-origin relative URLs)');
 export interface ChatRequest {
   message: string;
   top_k?: number;
+  principal?: string;  // Internet Identity principal for user isolation
 }
 
 export interface ChatResponse {
@@ -29,6 +30,7 @@ export interface ChatResponse {
 export interface InsertRequest {
   content: string;
   user_tags?: string;
+  principal?: string;  // Internet Identity principal for user isolation
 }
 
 export interface InsertResponse {
@@ -45,6 +47,7 @@ export interface InsertResponse {
 export interface SearchRequest {
   query: string;
   top_k?: number;
+  principal?: string;  // Internet Identity principal for user isolation
 }
 
 export interface SearchResponse {
@@ -86,9 +89,9 @@ export const memoryAPI = {
   },
 
   // Convenience method with simpler signature
-  insertMemory: async (content: string, tags?: string): Promise<InsertResponse> => {
+  insertMemory: async (content: string, tags?: string, principal?: string): Promise<InsertResponse> => {
     try {
-      const { data } = await api.post('/insert', { content, user_tags: tags });
+      const { data } = await api.post('/insert', { content, user_tags: tags, principal });
       return data;
     } catch (error: any) {
       console.error('InsertMemory API error:', error);
@@ -104,8 +107,8 @@ export const memoryAPI = {
   },
 
   // Convenience method with simpler signature
-  searchMemories: async (query: string, top_k: number = 5) => {
-    const { data } = await api.post('/search', { query, top_k });
+  searchMemories: async (query: string, top_k: number = 5, principal?: string) => {
+    const { data } = await api.post('/search', { query, top_k, principal });
     return data.results || [];
   },
 

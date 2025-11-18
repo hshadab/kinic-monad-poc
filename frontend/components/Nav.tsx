@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { LoginButton } from './LoginButton'
 
 export default function Nav() {
   const pathname = usePathname()
@@ -50,10 +51,16 @@ export default function Nav() {
             ))}
           </div>
 
-          {/* Connection Status */}
-          <div className="flex items-center space-x-2 px-3 py-1 border-3 border-black bg-green-400" style={{ boxShadow: '3px 3px 0 0 #000' }}>
-            <div className="w-3 h-3 bg-black"></div>
-            <span className="text-sm font-bold text-black uppercase">Live</span>
+          {/* Right Side: Status + Login */}
+          <div className="flex items-center space-x-3">
+            {/* Connection Status */}
+            <div className="flex items-center space-x-2 px-3 py-1 border-3 border-black bg-green-400" style={{ boxShadow: '3px 3px 0 0 #000' }}>
+              <div className="w-3 h-3 bg-black"></div>
+              <span className="text-sm font-bold text-black uppercase">Live</span>
+            </div>
+
+            {/* Internet Identity Login */}
+            <LoginButton />
           </div>
         </div>
       </div>
