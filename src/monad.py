@@ -3,6 +3,7 @@ Monad blockchain connector for logging memory metadata
 """
 import os
 import json
+import asyncio
 from pathlib import Path
 from web3 import Web3
 from eth_account import Account
@@ -31,29 +32,18 @@ class MonadLogger:
             contract_address: Deployed KinicMemoryLog contract address
             abi_path: Path to contract ABI JSON file
         """
-        print(f" Connecting to Monad at {rpc_url}...")
+        print(f"Connecting to Monad at {rpc_url}...")
 
-        # Configure HTTP provider with timeout for Windows compatibility
-        from web3.providers import HTTPProvider
-        provider = HTTPProvider(
-            rpc_url,
-            request_kwargs={'timeout': 30}  # 30 second timeout
-        )
-        self.w3 = Web3(provider)
+        self.w3 = Web3(Web3.HTTPProvider(rpc_url))
 
-        try:
-            if not self.w3.is_connected():
-                raise Exception(f"Failed to connect to Monad at {rpc_url}")
-        except Exception as e:
-            print(f" Connection error: {str(e)}")
-            print(f"   This may be a Windows Firewall or SSL certificate issue")
-            raise Exception(f"Failed to connect to Monad at {rpc_url}: {str(e)}")
+        if not self.w3.is_connected():
+            raise Exception(f"Failed to connect to Monad at {rpc_url}")
 
-        print(f" Connected to Monad! Chain ID: {self.w3.eth.chain_id}")
+        print(f"Connected to Monad! Chain ID: {self.w3.eth.chain_id}")
 
         # Set up account
         self.account = Account.from_key(private_key)
-        print(f" Using account: {self.account.address}")
+        print(f"Using account: {self.account.address}")
 
         # Load contract ABI
         abi_full_path = Path(abi_path)
@@ -69,7 +59,7 @@ class MonadLogger:
             abi=abi
         )
 
-        print(f" Contract loaded at: {contract_address}")
+        print(f"Contract loaded at: {contract_address}")
 
     async def log_insert(
         self,
@@ -122,7 +112,7 @@ class MonadLogger:
         content_hash: str
     ) -> str:
         """
-        Internal method to log memory to Monad
+        Internal method to log memory to Monad (async wrapper for blocking Web3 calls)
 
         Args:
             op_type: 0=INSERT, 1=SEARCH
@@ -146,51 +136,81 @@ class MonadLogger:
 
         content_hash_bytes = bytes.fromhex(content_hash)
 
-        print(f" Logging to Monad: opType={op_type}, title='{title[:30]}...'")
+        print(f"Logging to Monad: opType={op_type}, title='{title[:30]}...'")
 
-        # Build transaction
-        try:
-            txn = self.contract.functions.logMemory(
-                op_type,
-                title,
-                summary,
-                tags,
-                content_hash_bytes
-            ).build_transaction({
-                'from': self.account.address,
-                'nonce': self.w3.eth.get_transaction_count(self.account.address),
-                'gas': 300000,  # Increased for string storage
-                'gasPrice': self.w3.eth.gas_price
-            })
-        except Exception as e:
-            print(f" Error building transaction: {e}")
-            raise
+        # Run blocking Web3 operations in thread pool
+        loop = asyncio.get_event_loop()
 
-        # Sign transaction
-        signed = self.account.sign_transaction(txn)
+        def _build_and_send_transaction():
+            """Blocking function to build, sign, and send transaction"""
+            # Build transaction
+            try:
+                # Get nonce
+                nonce = self.w3.eth.get_transaction_count(self.account.address)
 
-        # Send transaction
-        try:
-            tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
-            print(f" Transaction sent: {tx_hash.hex()}")
-        except Exception as e:
-            print(f" Error sending transaction: {e}")
-            raise
+                # Estimate gas (or use fallback)
+                try:
+                    gas_estimate = self.contract.functions.logMemory(
+                        op_type,
+                        title,
+                        summary,
+                        tags,
+                        content_hash_bytes
+                    ).estimate_gas({'from': self.account.address})
+                    gas_limit = int(gas_estimate * 1.2)  # Add 20% buffer
+                except Exception:
+                    gas_limit = 300000  # Fallback
 
-        # Wait for receipt
-        try:
-            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+                txn = self.contract.functions.logMemory(
+                    op_type,
+                    title,
+                    summary,
+                    tags,
+                    content_hash_bytes
+                ).build_transaction({
+                    'from': self.account.address,
+                    'nonce': nonce,
+                    'gas': gas_limit,
+                    'gasPrice': self.w3.eth.gas_price
+                })
+            except Exception as e:
+                print(f"Error building transaction: {e}")
+                raise
 
-            if receipt['status'] == 1:
-                print(f" Transaction confirmed! Block: {receipt['blockNumber']}")
+            # Sign transaction
+            signed = self.account.sign_transaction(txn)
+
+            # Send transaction
+            try:
+                tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+                print(f"Transaction sent: {tx_hash.hex()}")
+                return tx_hash
+            except Exception as e:
+                print(f"Error sending transaction: {e}")
+                raise
+
+        # Send transaction in thread pool
+        tx_hash = await loop.run_in_executor(None, _build_and_send_transaction)
+
+        # Wait for receipt in thread pool
+        def _wait_for_receipt():
+            """Blocking function to wait for transaction receipt"""
+            try:
+                receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=120)
+
+                if receipt['status'] == 1:
+                    print(f"Transaction confirmed! Block: {receipt['blockNumber']}")
+                    return tx_hash.hex()
+                else:
+                    raise Exception("Transaction failed (status=0)")
+
+            except Exception as e:
+                print(f"Warning: Transaction may still be pending: {e}")
+                # Return hash even if receipt fails (can check later)
                 return tx_hash.hex()
-            else:
-                raise Exception("Transaction failed")
 
-        except Exception as e:
-            print(f"  Transaction may still be pending: {e}")
-            # Return hash even if receipt fails (can check later)
-            return tx_hash.hex()
+        tx_hash_hex = await loop.run_in_executor(None, _wait_for_receipt)
+        return tx_hash_hex
 
     def get_memory(self, memory_id: int) -> dict:
         """
@@ -235,7 +255,7 @@ if __name__ == "__main__":
         contract_address = os.getenv("MONAD_CONTRACT_ADDRESS")
 
         if not private_key or not contract_address:
-            print(" Set MONAD_PRIVATE_KEY and MONAD_CONTRACT_ADDRESS env vars")
+            print("Set MONAD_PRIVATE_KEY and MONAD_CONTRACT_ADDRESS env vars")
             return
 
         logger = MonadLogger(rpc_url, private_key, contract_address)
@@ -248,10 +268,10 @@ if __name__ == "__main__":
             content_hash="0x" + "a" * 64
         )
 
-        print(f"\n Test transaction: {tx}")
+        print(f"\nTest transaction: {tx}")
 
         # Get stats
         total = logger.get_total_memories()
-        print(f" Total memories on-chain: {total}")
+        print(f"Total memories on-chain: {total}")
 
     asyncio.run(test())

@@ -1,20 +1,33 @@
-# Multi-stage build for Kinic Memory Agent on Monad
-# Stage 1: Build kinic-cli (Rust)
-FROM rustlang/rust:nightly-slim as builder
+# Multi-stage build for Kinic Memory Agent on Monad with Python Bindings
+# Stage 1: Build kinic-py Python bindings (Rust + Python)
+FROM python:3.11-slim as builder
 
-# Install dependencies
+# Install Rust and build dependencies
 RUN apt-get update && apt-get install -y \
+    curl \
     git \
     pkg-config \
     libssl-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /build
 
-# Clone and build kinic-cli from POC branch
+# Clone kinic-cli from POC branch
 RUN git clone -b poc https://github.com/ICME-Lab/kinic-cli.git
 WORKDIR /build/kinic-cli
-RUN cargo build --release
+
+# Install maturin for building Python bindings
+RUN pip install --no-cache-dir maturin setuptools-rust setuptools wheel
+
+# Build kinic-py Python package (PyO3 bindings)
+RUN cd /build/kinic-cli && \
+    pip install setuptools-rust && \
+    pip install -e .
 
 # Stage 2: Build Next.js frontend
 FROM node:18-slim as frontend-builder
@@ -49,11 +62,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy kinic-cli binary from builder
-COPY --from=builder /build/kinic-cli/target/release/kinic-cli /app/kinic-cli/target/release/kinic-cli
-
-# Make binary executable
-RUN chmod +x /app/kinic-cli/target/release/kinic-cli
+# Copy kinic-cli source for editable install
+COPY --from=builder /build/kinic-cli /app/kinic-cli
 
 # Copy Next.js built frontend from frontend-builder
 COPY --from=frontend-builder /frontend/out /app/frontend/out
@@ -61,6 +71,11 @@ COPY --from=frontend-builder /frontend/out /app/frontend/out
 # Copy Python requirements and install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install kinic-py from the copied source
+RUN pip install setuptools-rust && \
+    cd /app/kinic-cli && \
+    pip install -e .
 
 # Copy application code
 COPY src/ ./src/
@@ -87,6 +102,9 @@ if [ ! -z "$IC_IDENTITY_PEM" ]; then\n\
 else\n\
     echo "WARNING: IC_IDENTITY_PEM not set - Kinic functionality will be limited"\n\
 fi\n\
+\n\
+# Verify kinic_py is installed\n\
+python3 -c "import kinic_py; print(\"kinic_py version:\", kinic_py.__version__)" || echo "WARNING: kinic_py not installed"\n\
 \n\
 # Start the application\n\
 exec uvicorn src.main:app --host 0.0.0.0 --port 8000\n\

@@ -1,56 +1,37 @@
 """
-Wrapper for kinic-cli binary to interact with Internet Computer
-Runs the Rust CLI as a subprocess
+Wrapper for kinic_py package to interact with Internet Computer
+Uses Python bindings (PyO3) for direct interaction with IC memory canisters
 """
-import subprocess
-import json
 import asyncio
-import tempfile
-import os
-from typing import List, Dict
-from pathlib import Path
+from typing import List, Dict, Tuple
+from kinic_py import KinicMemories
 
 
 class KinicRunner:
     """
-    Runs kinic-cli as subprocess to interact with IC memory canister
+    Manages Kinic memory operations via kinic_py package (Python bindings)
     """
 
-    def __init__(self, memory_id: str, identity: str, cli_path: str = None):
+    def __init__(self, memory_id: str, identity: str, ic: bool = True):
         """
         Initialize Kinic runner
 
         Args:
             memory_id: IC canister principal ID for memory storage
-            identity: IC identity name to use
-            cli_path: Path to kinic-cli binary (auto-detected if None)
+            identity: IC identity name to use (e.g., "default")
+            ic: If True, connect to IC mainnet; if False, use local replica
         """
         self.memory_id = memory_id
         self.identity = identity
+        self.ic = ic
 
-        # Auto-detect CLI path
-        if cli_path is None:
-            # Try common locations (Windows .exe first, then Unix)
-            possible_paths = [
-                "./kinic-cli/target/release/kinic-cli.exe",  # Windows
-                "./kinic-cli/target/release/kinic-cli",      # Unix/WSL
-                "/app/kinic-cli/target/release/kinic-cli.exe",
-                "/app/kinic-cli/target/release/kinic-cli",
-                "./kinic-cli.exe",
-                "./kinic-cli",
-                "kinic-cli.exe",
-                "kinic-cli"
-            ]
-            for path in possible_paths:
-                if Path(path).exists():
-                    self.cli_path = path
-                    break
-            else:
-                raise FileNotFoundError("kinic-cli binary not found. Please build it first.")
-        else:
-            self.cli_path = cli_path
+        # Initialize KinicMemories instance
+        self.km = KinicMemories(identity, ic=ic)
 
-        print(f" KinicRunner initialized with CLI at: {self.cli_path}")
+        print(f"KinicRunner initialized:")
+        print(f"  - Identity: {self.identity}")
+        print(f"  - Memory ID: {self.memory_id}")
+        print(f"  - Network: {'IC Mainnet' if self.ic else 'Local Replica'}")
 
     async def insert(self, content: str, tag: str = "general") -> Dict:
         """
@@ -61,39 +42,29 @@ class KinicRunner:
             tag: Tag to associate with content
 
         Returns:
-            Result dictionary from kinic-cli
+            Result dictionary with status and chunk count
         """
-        # Write content to temp file (kinic-cli reads from files)
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
-            f.write(content)
-            temp_path = f.name
-
         try:
-            # Build command - identity comes BEFORE subcommand
-            cmd = [
-                self.cli_path,
-                "--identity", self.identity,
-                "insert",
-                "--memory-id", self.memory_id,
-                "--file-path", temp_path,
-                "--tag", tag
-            ]
-
-            # Run command
-            output = await self._run_command(cmd)
+            # Run kinic_py insert in thread pool to avoid blocking event loop
+            loop = asyncio.get_event_loop()
+            chunks_inserted = await loop.run_in_executor(
+                None,
+                self.km.insert_text,
+                self.memory_id,
+                tag,
+                content
+            )
 
             return {
                 "status": "inserted",
-                "output": output,
-                "tag": tag
+                "chunks": chunks_inserted,
+                "tag": tag,
+                "memory_id": self.memory_id
             }
 
-        finally:
-            # Clean up temp file
-            try:
-                os.unlink(temp_path)
-            except:
-                pass
+        except Exception as e:
+            print(f"Error inserting content: {e}")
+            raise RuntimeError(f"Failed to insert content into Kinic: {str(e)}")
 
     async def search(self, query: str, format: str = "json", top_k: int = 5) -> List[Dict]:
         """
@@ -101,109 +72,136 @@ class KinicRunner:
 
         Args:
             query: Search query string
-            format: Output format (json, text, csv)
-            top_k: Number of results (not directly supported by CLI, but included for API compatibility)
+            format: Output format (json, text, csv) - kept for API compatibility
+            top_k: Number of top results to return
 
         Returns:
-            List of search results
+            List of search results with scores and text
         """
-        # Build command - identity comes BEFORE subcommand
-        cmd = [
-            self.cli_path,
-            "--identity", self.identity,
-            "search",
-            "--memory-id", self.memory_id,
-            "--query", query
-        ]
-
-        # Run command
-        output = await self._run_command(cmd)
-
-        # Parse output - kinic-cli returns text format
         try:
-            # Try parsing as JSON first
-            results = json.loads(output)
-            return results if isinstance(results, list) else [{"text": output}]
-        except json.JSONDecodeError:
-            # Fallback to text parsing if JSON fails
-            return [{"score": 1.0, "text": output}]
+            # Run kinic_py search in thread pool to avoid blocking event loop
+            loop = asyncio.get_event_loop()
+            results: List[Tuple[float, str]] = await loop.run_in_executor(
+                None,
+                self.km.search,
+                self.memory_id,
+                query
+            )
+
+            # Convert to dictionary format and apply top_k limit
+            formatted_results = [
+                {
+                    "score": float(score),
+                    "text": text,
+                    "sentence": text,  # Alias for compatibility
+                    "tag": None  # Tag not returned by search, could be enhanced
+                }
+                for score, text in results[:top_k]
+            ]
+
+            return formatted_results
+
+        except Exception as e:
+            print(f"Error searching Kinic: {e}")
+            raise RuntimeError(f"Failed to search Kinic memories: {str(e)}")
 
     async def list_memories(self) -> Dict:
         """
-        List all deployed memory canisters
+        List all deployed memory canisters for this identity
 
         Returns:
-            List of memory canister IDs
+            Dictionary with list of memory canister IDs
         """
-        cmd = [
-            self.cli_path,
-            "--identity", self.identity,
-            "list"
-        ]
+        try:
+            # Run kinic_py list in thread pool to avoid blocking event loop
+            loop = asyncio.get_event_loop()
+            memories: List[str] = await loop.run_in_executor(
+                None,
+                self.km.list
+            )
 
-        output = await self._run_command(cmd)
+            return {
+                "status": "success",
+                "memories": memories,
+                "count": len(memories)
+            }
 
-        return {
-            "status": "success",
-            "output": output
-        }
+        except Exception as e:
+            print(f"Error listing memories: {e}")
+            raise RuntimeError(f"Failed to list Kinic memories: {str(e)}")
 
-    async def _run_command(self, cmd: List[str]) -> str:
+    async def create_memory(self, name: str, description: str) -> str:
         """
-        Run subprocess command asynchronously
+        Create a new memory canister
 
         Args:
-            cmd: Command list to execute
+            name: Name for the new memory
+            description: Description of the memory
 
         Returns:
-            stdout output
-
-        Raises:
-            Exception: If command fails
+            Canister ID of the newly created memory
         """
-        # Log command (without full paths for cleanliness)
-        cmd_str = " ".join([c if not c.startswith("/") else Path(c).name for c in cmd])
-        print(f" Running: {cmd_str}")
+        try:
+            # Run kinic_py create in thread pool to avoid blocking event loop
+            loop = asyncio.get_event_loop()
+            canister_id: str = await loop.run_in_executor(
+                None,
+                self.km.create,
+                name,
+                description
+            )
 
-        # Create subprocess
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
+            return canister_id
 
-        # Wait for completion
-        stdout, stderr = await process.communicate()
-
-        # Check for errors
-        if process.returncode != 0:
-            error_msg = stderr.decode().strip()
-            print(f" kinic-cli error: {error_msg}")
-            raise Exception(f"kinic-cli failed: {error_msg}")
-
-        output = stdout.decode().strip()
-        print(f" Command completed successfully")
-
-        return output
+        except Exception as e:
+            print(f"Error creating memory: {e}")
+            raise RuntimeError(f"Failed to create Kinic memory: {str(e)}")
 
 
 # Quick test
 if __name__ == "__main__":
+    import os
+    import json
+
     async def test():
+        """Test KinicRunner with kinic_py bindings"""
         # Test with environment variables
         memory_id = os.getenv("KINIC_MEMORY_ID", "test-canister-id")
         identity = os.getenv("IC_IDENTITY_NAME", "default")
 
-        runner = KinicRunner(memory_id, identity)
+        print("\n" + "="*60)
+        print("Testing KinicRunner with Python Bindings")
+        print("="*60)
 
-        # Test insert
-        print("\n=== Testing Insert ===")
-        result = await runner.insert("# Test\nThis is a test memory.", "test")
-        print(json.dumps(result, indent=2))
+        try:
+            runner = KinicRunner(memory_id, identity, ic=True)
 
-        # Test search
-        print("\n=== Testing Search ===")
-        results = await runner.search("test memory")
-        print(json.dumps(results, indent=2))
+            # Test insert
+            print("\n=== Testing Insert ===")
+            result = await runner.insert(
+                "# Test Memory\nThis is a test memory using kinic_py bindings.",
+                "test"
+            )
+            print(json.dumps(result, indent=2))
+
+            # Test search
+            print("\n=== Testing Search ===")
+            results = await runner.search("test memory", top_k=5)
+            print(f"Found {len(results)} results:")
+            print(json.dumps(results, indent=2))
+
+            # Test list
+            print("\n=== Testing List Memories ===")
+            memories = await runner.list_memories()
+            print(json.dumps(memories, indent=2))
+
+            print("\n" + "="*60)
+            print("All tests completed successfully!")
+            print("="*60)
+
+        except Exception as e:
+            print(f"\n❌ Test failed: {e}")
+            import traceback
+            traceback.print_exc()
 
     asyncio.run(test())
