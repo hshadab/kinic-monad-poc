@@ -73,7 +73,8 @@ def deploy_contract(rpc_url, private_key):
     signed = account.sign_transaction(txn)
 
     print("📡 Sending transaction...")
-    tx_hash = w3.eth.send_raw_transaction(signed.rawTransaction)
+    # web3.py 7.x uses raw_transaction instead of rawTransaction
+    tx_hash = w3.eth.send_raw_transaction(signed.raw_transaction)
     print(f"📋 Transaction hash: {tx_hash.hex()}")
 
     # Wait for receipt

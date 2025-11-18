@@ -210,7 +210,8 @@ class MonadLogger:
 
             # Send transaction
             try:
-                tx_hash = self.w3.eth.send_raw_transaction(signed.rawTransaction)
+                # web3.py 7.x uses raw_transaction instead of rawTransaction
+                tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
                 print(f"Transaction sent: {tx_hash.hex()}")
                 return tx_hash
             except Exception as e:
