@@ -32,6 +32,13 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false  # Secret - set in Render dashboard
 
+      # Security Configuration (Optional)
+      - key: API_KEY
+        sync: false  # Optional API key for authentication - set in Render dashboard
+
+      - key: ALLOWED_ORIGINS
+        value: "https://monad-ai-memory.onrender.com"  # Comma-separated allowed CORS origins
+
       # Python/Runtime
       - key: PYTHONUNBUFFERED
         value: "1"

@@ -117,13 +117,24 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# CORS middleware - Secure configuration
+# Get allowed origins from environment variable (comma-separated)
+# Default includes production URL and common local development URLs
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "https://monad-ai-memory.onrender.com,http://localhost:3000,http://localhost:8000"
+).split(",")
+
+# If explicitly set to "*" in env, allow all (not recommended for production)
+if allowed_origins == ["*"]:
+    print("⚠️  WARNING: CORS set to allow all origins (*) - not recommended for production!")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],  # Only necessary methods
+    allow_headers=["Content-Type", "X-API-Key"],  # Only necessary headers
 )
 
 # Add response headers to prevent caching
