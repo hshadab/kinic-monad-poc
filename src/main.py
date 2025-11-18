@@ -16,11 +16,14 @@ load_dotenv(dotenv_path=env_path)
 from src.models import (
     InsertRequest, SearchRequest, InsertResponse,
     SearchResponse, SearchResult, HealthResponse,
-    ChatRequest, ChatResponse
+    ChatRequest, ChatResponse,
+    MonadSearchRequest, MonadSearchResponse, MonadMemory,
+    MonadStatsResponse, TrendingTag
 )
 from src.kinic_client import KinicClient
 from src.metadata import extract_metadata
 from src.monad import MonadLogger
+from src.monad_cache import MonadCache
 from src.ai_agent import AIAgent
 from src.credential_manager import get_credential_manager, CredentialKey
 
@@ -28,13 +31,14 @@ from src.credential_manager import get_credential_manager, CredentialKey
 # Global instances
 kinic: KinicClient = None
 monad: MonadLogger = None
+monad_cache: MonadCache = None
 ai_agent: AIAgent = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize services on startup"""
-    global kinic, monad, ai_agent
+    global kinic, monad, monad_cache, ai_agent
 
     print("\n" + "="*60)
     print("Starting Kinic Memory Agent on Monad")
@@ -84,6 +88,13 @@ async def lifespan(app: FastAPI):
         api_key=anthropic_key,
         model="claude-3-haiku-20240307"  # Fast and cheap
     )
+
+    # Initialize Monad Cache
+    print("\nInitializing Monad Cache...")
+    monad_cache = MonadCache(monad)
+
+    # Sync cache from blockchain (async)
+    await monad_cache.sync_from_blockchain()
 
     print("\n" + "="*60)
     print("All services initialized successfully!")
@@ -349,6 +360,145 @@ async def chat_with_agent(request: ChatRequest):
 
     except Exception as e:
         print(f" CHAT failed: {e}\n")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/monad/search", response_model=MonadSearchResponse)
+async def search_monad_metadata(request: MonadSearchRequest):
+    """
+    Search Monad blockchain metadata cache
+
+    Enables fast querying of on-chain memory logs without gas costs.
+    Searches cached metadata by tags, title, or summary.
+
+    Flow:
+    1. Query local cache (synced from blockchain)
+    2. Filter by tags, title, or summary
+    3. Return matching memories with metadata
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
+
+    if not monad_cache.synced:
+        raise HTTPException(status_code=503, detail="Monad cache not synced yet")
+
+    try:
+        print(f"\n🔍 MONAD SEARCH request")
+
+        results = []
+
+        # Search by tags
+        if request.tags:
+            print(f"  -> Searching by tags: {request.tags}")
+            results = monad_cache.search_by_tags(
+                request.tags,
+                limit=request.limit,
+                op_type=request.op_type
+            )
+        # Search by title
+        elif request.title:
+            print(f"  -> Searching by title: {request.title}")
+            results = monad_cache.search_by_title(
+                request.title,
+                limit=request.limit,
+                op_type=request.op_type
+            )
+        # Search by summary
+        elif request.summary:
+            print(f"  -> Searching by summary: {request.summary}")
+            results = monad_cache.search_by_summary(
+                request.summary,
+                limit=request.limit
+            )
+        # Get recent if no filters
+        else:
+            print(f"  -> Getting recent memories")
+            results = monad_cache.get_recent(
+                limit=request.limit,
+                op_type=request.op_type
+            )
+
+        print(f"  ✅ Found {len(results)} results from Monad cache\n")
+
+        # Convert to Pydantic models
+        memory_models = [MonadMemory(**r) for r in results]
+
+        return MonadSearchResponse(
+            results=memory_models,
+            num_results=len(memory_models),
+            source="monad"
+        )
+
+    except Exception as e:
+        print(f"❌ MONAD SEARCH failed: {e}\n")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/monad/stats", response_model=MonadStatsResponse)
+async def get_monad_cache_stats():
+    """
+    Get Monad cache statistics
+
+    Returns information about the cached blockchain data:
+    - Total memories
+    - Insert vs search operations
+    - Unique tags and users
+    - Most active user
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
+
+    try:
+        stats = monad_cache.get_stats()
+        return MonadStatsResponse(**stats)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/monad/trending", response_model=List[TrendingTag])
+async def get_trending_tags(limit: int = 10):
+    """
+    Get trending tags from Monad metadata
+
+    Returns most popular tags based on usage count.
+    Useful for discovering what topics are being researched.
+
+    Args:
+        limit: Number of tags to return (default: 10)
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
+
+    if not monad_cache.synced:
+        raise HTTPException(status_code=503, detail="Monad cache not synced yet")
+
+    try:
+        trending = monad_cache.get_trending_tags(limit=limit)
+        return [TrendingTag(tag=tag, count=count) for tag, count in trending]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/monad/refresh")
+async def refresh_monad_cache():
+    """
+    Manually refresh Monad cache from blockchain
+
+    Syncs all memories from Monad smart contract.
+    Useful if cache gets out of sync.
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
+
+    try:
+        await monad_cache.refresh()
+        stats = monad_cache.get_stats()
+        return {
+            "status": "refreshed",
+            "total_memories": stats["total_memories"],
+            "last_sync": stats["last_sync"]
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 

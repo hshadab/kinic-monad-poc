@@ -90,3 +90,58 @@ class ChatResponse(BaseModel):
     memories_used: List[Dict] = Field(..., description="Memories used as context")
     num_memories: int = Field(..., description="Number of memories retrieved")
     monad_tx: str = Field(..., description="Monad transaction hash for logging")
+
+
+# Monad-specific models
+class MonadMemory(BaseModel):
+    """Memory metadata from Monad blockchain"""
+    id: int = Field(..., description="On-chain memory ID")
+    user: str = Field(..., description="User/agent Ethereum address")
+    opType: int = Field(..., description="Operation type: 0=INSERT, 1=SEARCH")
+    title: str = Field(..., description="Memory title")
+    summary: str = Field(..., description="Content summary")
+    tags: str = Field(..., description="Comma-separated tags")
+    contentHash: str = Field(..., description="SHA256 hash of content")
+    timestamp: int = Field(..., description="Unix timestamp")
+
+
+class MonadSearchRequest(BaseModel):
+    """Request to search Monad metadata"""
+    tags: Optional[str] = Field(None, description="Comma-separated tags to search")
+    title: Optional[str] = Field(None, description="Title substring to search")
+    summary: Optional[str] = Field(None, description="Summary substring to search")
+    op_type: Optional[int] = Field(None, ge=0, le=1, description="Filter by operation type")
+    limit: Optional[int] = Field(50, ge=1, le=100, description="Maximum results")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "tags": "zkml,research",
+                "limit": 20
+            }
+        }
+
+
+class MonadSearchResponse(BaseModel):
+    """Response from Monad metadata search"""
+    results: List[MonadMemory] = Field(..., description="Matching memories")
+    num_results: int = Field(..., description="Number of results")
+    source: str = Field("monad", description="Data source")
+
+
+class MonadStatsResponse(BaseModel):
+    """Monad cache statistics"""
+    synced: bool = Field(..., description="Cache sync status")
+    last_sync: Optional[str] = Field(None, description="Last sync timestamp")
+    total_memories: int = Field(..., description="Total memories cached")
+    insert_operations: int = Field(..., description="Number of INSERT operations")
+    search_operations: int = Field(..., description="Number of SEARCH operations")
+    unique_tags: int = Field(..., description="Number of unique tags")
+    unique_users: int = Field(..., description="Number of unique users")
+    most_active_user: Optional[str] = Field(None, description="Most active user address")
+
+
+class TrendingTag(BaseModel):
+    """Trending tag with usage count"""
+    tag: str = Field(..., description="Tag name")
+    count: int = Field(..., description="Usage count")
