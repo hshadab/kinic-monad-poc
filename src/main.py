@@ -3,33 +3,28 @@ Kinic Memory Agent - FastAPI Service
 Integrates Kinic (IC) memory storage with Monad blockchain logging
 """
 import os
-import sys
+from pathlib import Path
+from typing import List
 from dotenv import load_dotenv
-
-# Force UTF-8 encoding for stdout/stderr BEFORE anything else
-if sys.stdout.encoding != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
-if sys.stderr.encoding != 'utf-8':
-    sys.stderr.reconfigure(encoding='utf-8')
-
-# Load environment variables FIRST before any other imports
-load_dotenv()
-
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
-from pathlib import Path
+
+# Load environment variables from .env file in project root
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 from src.models import (
     InsertRequest, SearchRequest, InsertResponse,
     SearchResponse, SearchResult, HealthResponse,
-    ChatRequest, ChatResponse
+    ChatRequest, ChatResponse,
+    MonadSearchRequest, MonadSearchResponse, MonadMemory,
+    MonadStatsResponse, TrendingTag
 )
 from src.kinic_client import KinicClient
 from src.metadata import extract_metadata
 from src.monad import MonadLogger
+from src.monad_cache import MonadCache
 from src.ai_agent import AIAgent
 from src.credential_manager import get_credential_manager, CredentialKey
 
@@ -37,13 +32,14 @@ from src.credential_manager import get_credential_manager, CredentialKey
 # Global instances
 kinic: KinicClient = None
 monad: MonadLogger = None
+monad_cache: MonadCache = None
 ai_agent: AIAgent = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize services on startup"""
-    global kinic, monad, ai_agent
+    global kinic, monad, monad_cache, ai_agent
 
     print("\n" + "="*60)
     print("Starting Kinic Memory Agent on Monad")
@@ -55,8 +51,7 @@ async def lifespan(app: FastAPI):
     # Load configuration from keyring with fallback to environment variables
     print("\nLoading credentials from OS keyring...")
     memory_id = cred_mgr.get_credential(CredentialKey.KINIC_MEMORY_ID, fallback_env_var="KINIC_MEMORY_ID")
-    identity_pem = os.getenv("IC_IDENTITY_PEM", "")  # PEM content from environment
-    ic_url = os.getenv("IC_URL", "https://ic0.app")
+    identity_pem = os.getenv("IC_IDENTITY_PEM")  # PEM string for pure Python client
     monad_rpc = cred_mgr.get_credential(CredentialKey.MONAD_RPC_URL, fallback_env_var="MONAD_RPC_URL") or "https://testnet-rpc.monad.xyz"
     monad_key = cred_mgr.get_credential(CredentialKey.MONAD_PRIVATE_KEY, fallback_env_var="MONAD_PRIVATE_KEY")
     monad_contract = os.getenv("MONAD_CONTRACT_ADDRESS")  # Keep this as env var for now
@@ -66,7 +61,7 @@ async def lifespan(app: FastAPI):
     if not memory_id:
         raise ValueError("KINIC_MEMORY_ID not found in keyring or environment variables. Run setup_credentials.py first.")
     if not identity_pem:
-        print("Warning: IC_IDENTITY_PEM not set, using anonymous identity for IC")
+        raise ValueError("IC_IDENTITY_PEM environment variable required for pure Python client")
     if not monad_key:
         raise ValueError("MONAD_PRIVATE_KEY not found in keyring or environment variables. Run setup_credentials.py first.")
     if not monad_contract:
@@ -76,13 +71,9 @@ async def lifespan(app: FastAPI):
 
     print("Credentials loaded successfully")
 
-    # Initialize Kinic client (Python IC client)
-    print("\nInitializing Kinic Client (Python IC)...")
-    kinic = KinicClient(
-        memory_id=memory_id,
-        identity_pem=identity_pem,
-        ic_url=ic_url
-    )
+    # Initialize Kinic client (pure Python)
+    print("\nInitializing Kinic Client (pure Python)...")
+    kinic = KinicClient(memory_id=memory_id, identity_pem=identity_pem)
 
     # Initialize Monad logger
     print("\nInitializing Monad Logger...")
@@ -98,6 +89,13 @@ async def lifespan(app: FastAPI):
         api_key=anthropic_key,
         model="claude-3-haiku-20240307"  # Fast and cheap
     )
+
+    # Initialize Monad Cache
+    print("\nInitializing Monad Cache...")
+    monad_cache = MonadCache(monad)
+
+    # Sync cache from blockchain (async)
+    await monad_cache.sync_from_blockchain()
 
     print("\n" + "="*60)
     print("All services initialized successfully!")
@@ -137,35 +135,17 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-API-Key"],  # Only necessary headers
 )
 
-# Add response headers to prevent caching
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
 
-class NoCacheMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        # Prevent caching of HTML and JavaScript files
-        if request.url.path.endswith(('.html', '.js', '.css')):
-            response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-            response.headers['Pragma'] = 'no-cache'
-            response.headers['Expires'] = '0'
-        return response
-
-app.add_middleware(NoCacheMiddleware)
-
-
-@app.get("/api", response_model=dict)
-async def api_root():
-    """API root endpoint"""
+@app.get("/", response_model=dict)
+async def root():
+    """Root endpoint"""
     return {
         "service": "Kinic Memory Agent on Monad",
         "status": "running",
         "endpoints": {
             "insert": "POST /insert",
             "search": "POST /search",
-            "health": "GET /health",
-            "chat": "POST /chat",
-            "stats": "GET /stats"
+            "health": "GET /health"
         }
     }
 
@@ -204,20 +184,11 @@ async def insert_memory(request: InsertRequest):
 
         # 1. Insert into Kinic memory (Internet Computer)
         print("  -> Storing in Kinic...")
-        kinic_result = None
-        try:
-            kinic_result = await kinic.insert(
-                content=request.content,
-                tag=request.user_tags or "general"
-            )
-            print(f"   Stored in Kinic")
-        except Exception as e:
-            # Handle Kinic errors gracefully
-            error_msg = str(e)
-            print(f"    Kinic insert failed: {error_msg}")
-            print(f"    Full error: {repr(e)}")
-            print("     Will log to Monad only")
-            kinic_result = {"status": "skipped", "reason": error_msg[:100]}
+        kinic_result = await kinic.insert(
+            content=request.content,
+            tag=request.user_tags or "general"
+        )
+        print(f"   Stored in Kinic")
 
         # 2. Extract metadata
         print("  -> Extracting metadata...")
@@ -329,51 +300,6 @@ async def get_stats():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/list-memories", response_model=dict)
-async def list_memories(limit: int = 20, offset: int = 0):
-    """List memories from Monad blockchain"""
-    if not monad:
-        raise HTTPException(status_code=503, detail="Monad not initialized")
-
-    try:
-        total_memories = monad.get_total_memories()
-        user_memories_ids = []
-
-        # Get all memory IDs for this user
-        user_count = monad.get_user_memory_count(monad.account.address)
-
-        # Fetch user's memories (most recent first)
-        memories_list = []
-        for i in range(max(0, user_count - offset - limit), min(user_count, user_count - offset)):
-            memory_id = monad.contract.functions.userMemories(monad.account.address, i).call()
-            memory_data = monad.get_memory(memory_id)
-
-            # Only include INSERT operations (opType == 0), not SEARCH operations
-            if memory_data["opType"] == 0:
-                memories_list.append({
-                    "id": memory_id,
-                    "title": memory_data["title"],
-                    "summary": memory_data["summary"],
-                    "tags": memory_data["tags"],
-                    "contentHash": memory_data["contentHash"],
-                    "timestamp": memory_data["timestamp"],
-                    "user": memory_data["user"]
-                })
-
-        # Reverse to show most recent first
-        memories_list.reverse()
-
-        return {
-            "memories": memories_list,
-            "total": user_count,
-            "limit": limit,
-            "offset": offset
-        }
-    except Exception as e:
-        print(f"Error listing memories: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/chat", response_model=ChatResponse)
 async def chat_with_agent(request: ChatRequest):
     """
@@ -394,36 +320,28 @@ async def chat_with_agent(request: ChatRequest):
 
         # 1. Search Kinic for relevant context
         print("  -> Searching Kinic for context...")
+        kinic_results = await kinic.search(
+            query=request.message,
+            top_k=request.top_k
+        )
+
+        # Format results for AI agent
         memories = []
+        for item in kinic_results[:request.top_k]:
+            memories.append({
+                "text": item.get("sentence", item.get("text", str(item))),
+                "score": item.get("score", 1.0),
+                "tag": item.get("tag", "")
+            })
 
-        try:
-            kinic_results = await kinic.search(
-                query=request.message,
-                top_k=request.top_k
-            )
-
-            # Format results for AI agent
-            for item in kinic_results[:request.top_k]:
-                memories.append({
-                    "text": item.get("sentence", item.get("text", str(item))),
-                    "score": item.get("score", 1.0),
-                    "tag": item.get("tag", "")
-                })
-
-            print(f"   Found {len(memories)} relevant memories")
-        except Exception as e:
-            # Handle Kinic errors gracefully
-            print(f"    Kinic search failed: {str(e)}")
-            print(f"    Full error: {repr(e)}")
-            print("     Chat will work without memory context")
-            memories = []
-            print(f"   Found {len(memories)} relevant memories")
+        print(f"   Found {len(memories)} relevant memories")
 
         # 2. Generate AI response with context
         print("  -> Generating AI response with Claude...")
-        response_text = await ai_agent.chat(
+        response_text, _ = await ai_agent.chat_with_memory_search(
             message=request.message,
-            memory_context=memories
+            search_function=lambda q, k: memories,  # Use already searched memories
+            top_k=request.top_k
         )
         print(f"   AI response generated ({len(response_text)} chars)")
 
@@ -457,47 +375,151 @@ async def chat_with_agent(request: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# Serve Next.js frontend static files
-FRONTEND_DIR = Path(__file__).parent.parent / "frontend" / "out"
+@app.post("/monad/search", response_model=MonadSearchResponse)
+async def search_monad_metadata(request: MonadSearchRequest):
+    """
+    Search Monad blockchain metadata cache
 
-if FRONTEND_DIR.exists():
-    # Mount static files (CSS, JS, images, etc.)
-    app.mount("/_next", StaticFiles(directory=FRONTEND_DIR / "_next"), name="static-next")
+    Enables fast querying of on-chain memory logs without gas costs.
+    Searches cached metadata by tags, title, or summary.
 
-    # Serve root and all routes with index.html (SPA routing)
-    @app.get("/{full_path:path}")
-    async def serve_frontend(full_path: str):
-        """Serve Next.js frontend for all non-API routes"""
-        # If it's an API route, return 404
-        if full_path.startswith(("insert", "search", "chat", "health", "stats", "api")):
-            raise HTTPException(status_code=404, detail="Not found")
+    Flow:
+    1. Query local cache (synced from blockchain)
+    2. Filter by tags, title, or summary
+    3. Return matching memories with metadata
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
 
-        # Try to serve the exact file first (for static assets)
-        file_path = FRONTEND_DIR / full_path
-        if file_path.is_file():
-            return FileResponse(file_path)
+    if not monad_cache.synced:
+        raise HTTPException(status_code=503, detail="Monad cache not synced yet")
 
-        # Try with .html extension (Next.js static export)
-        html_path = FRONTEND_DIR / f"{full_path}.html"
-        if html_path.is_file():
-            return FileResponse(html_path)
+    try:
+        print(f"\n🔍 MONAD SEARCH request")
 
-        # Default to index.html for SPA routing
-        index_path = FRONTEND_DIR / "index.html"
-        if index_path.is_file():
-            return FileResponse(index_path)
+        results = []
 
-        raise HTTPException(status_code=404, detail="Not found")
-else:
-    print("  Frontend not found - serving API only")
+        # Search by tags
+        if request.tags:
+            print(f"  -> Searching by tags: {request.tags}")
+            results = monad_cache.search_by_tags(
+                request.tags,
+                limit=request.limit,
+                op_type=request.op_type
+            )
+        # Search by title
+        elif request.title:
+            print(f"  -> Searching by title: {request.title}")
+            results = monad_cache.search_by_title(
+                request.title,
+                limit=request.limit,
+                op_type=request.op_type
+            )
+        # Search by summary
+        elif request.summary:
+            print(f"  -> Searching by summary: {request.summary}")
+            results = monad_cache.search_by_summary(
+                request.summary,
+                limit=request.limit
+            )
+        # Get recent if no filters
+        else:
+            print(f"  -> Getting recent memories")
+            results = monad_cache.get_recent(
+                limit=request.limit,
+                op_type=request.op_type
+            )
+
+        print(f"  ✅ Found {len(results)} results from Monad cache\n")
+
+        # Convert to Pydantic models
+        memory_models = [MonadMemory(**r) for r in results]
+
+        return MonadSearchResponse(
+            results=memory_models,
+            num_results=len(memory_models),
+            source="monad"
+        )
+
+    except Exception as e:
+        print(f"❌ MONAD SEARCH failed: {e}\n")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/monad/stats", response_model=MonadStatsResponse)
+async def get_monad_cache_stats():
+    """
+    Get Monad cache statistics
+
+    Returns information about the cached blockchain data:
+    - Total memories
+    - Insert vs search operations
+    - Unique tags and users
+    - Most active user
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
+
+    try:
+        stats = monad_cache.get_stats()
+        return MonadStatsResponse(**stats)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/monad/trending", response_model=List[TrendingTag])
+async def get_trending_tags(limit: int = 10):
+    """
+    Get trending tags from Monad metadata
+
+    Returns most popular tags based on usage count.
+    Useful for discovering what topics are being researched.
+
+    Args:
+        limit: Number of tags to return (default: 10)
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
+
+    if not monad_cache.synced:
+        raise HTTPException(status_code=503, detail="Monad cache not synced yet")
+
+    try:
+        trending = monad_cache.get_trending_tags(limit=limit)
+        return [TrendingTag(tag=tag, count=count) for tag, count in trending]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/monad/refresh")
+async def refresh_monad_cache():
+    """
+    Manually refresh Monad cache from blockchain
+
+    Syncs all memories from Monad smart contract.
+    Useful if cache gets out of sync.
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
+
+    try:
+        await monad_cache.refresh()
+        stats = monad_cache.get_stats()
+        return {
+            "status": "refreshed",
+            "total_memories": stats["total_memories"],
+            "last_sync": stats["last_sync"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # Run locally for testing
 if __name__ == "__main__":
     import uvicorn
 
-    print(" Running in development mode...")
-    print("  Make sure you have set all required environment variables!\n")
+    print("🧪 Running in development mode...")
+    print("⚠️  Make sure you have set all required environment variables!\n")
 
     uvicorn.run(
         "main:app",

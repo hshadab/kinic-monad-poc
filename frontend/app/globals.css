@@ -52,6 +52,13 @@
     box-shadow: 12px 12px 0px #1a1a1a;
   }
 
+  .card-compact {
+    @apply p-4;
+    border: 3px solid #1a1a1a;
+    border-radius: 0;
+    box-shadow: 4px 4px 0px #1a1a1a;
+  }
+
   /* Brutalist Button Styles */
   .btn-brutalist {
     border: 4px solid #1a1a1a;

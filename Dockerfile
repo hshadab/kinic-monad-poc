@@ -1,22 +1,7 @@
-# Multi-stage build for Kinic Memory Agent on Monad
-# Stage 1: Build kinic-cli (Rust)
-FROM rustlang/rust:nightly-slim as builder
+# Pure Python Dockerfile for Kinic Memory Agent on Monad
+# No Rust needed - uses ic-py for Internet Computer interaction
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /build
-
-# Clone and build kinic-cli from POC branch
-RUN git clone -b poc https://github.com/ICME-Lab/kinic-cli.git
-WORKDIR /build/kinic-cli
-RUN cargo build --release
-
-# Stage 2: Build Next.js frontend
+# Stage 1: Build Next.js frontend
 FROM node:18-slim as frontend-builder
 
 WORKDIR /frontend
@@ -33,7 +18,7 @@ ENV NEXT_PUBLIC_API_URL=''
 
 RUN npm run build
 
-# Stage 3: Runtime environment
+# Stage 2: Runtime environment (pure Python)
 FROM python:3.11-slim
 
 # Set UTF-8 encoding for Python to handle Unicode characters in logs
@@ -48,12 +33,6 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-
-# Copy kinic-cli binary from builder
-COPY --from=builder /build/kinic-cli/target/release/kinic-cli /app/kinic-cli/target/release/kinic-cli
-
-# Make binary executable
-RUN chmod +x /app/kinic-cli/target/release/kinic-cli
 
 # Copy Next.js built frontend from frontend-builder
 COPY --from=frontend-builder /frontend/out /app/frontend/out
@@ -78,15 +57,14 @@ export LC_ALL=C.UTF-8\n\
 \n\
 # Write IC identity PEM from environment variable if provided\n\
 if [ ! -z "$IC_IDENTITY_PEM" ]; then\n\
-    echo "Writing IC identity from environment variable..."\n\
-    printf "%s\\n" "$IC_IDENTITY_PEM" > /root/.config/dfx/identity/default/identity.pem\n\
-    chmod 600 /root/.config/dfx/identity/default/identity.pem\n\
-    echo "IC identity file created:"\n\
-    ls -la /root/.config/dfx/identity/default/identity.pem\n\
-    echo "IC identity configured successfully"\n\
+    echo "IC identity PEM provided in environment (pure Python client)"\n\
+    echo "✅ Pure Python ic-py client will use IC_IDENTITY_PEM directly"\n\
 else\n\
     echo "WARNING: IC_IDENTITY_PEM not set - Kinic functionality will be limited"\n\
 fi\n\
+\n\
+# Verify ic-py is installed\n\
+python3 -c "from ic.client import Client; print(\"✅ ic-py installed successfully\")" || echo "WARNING: ic-py not installed"\n\
 \n\
 # Start the application\n\
 exec uvicorn src.main:app --host 0.0.0.0 --port 8000\n\
