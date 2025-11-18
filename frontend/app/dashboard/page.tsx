@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import Nav from '@/components/Nav'
 import StatsCard from '@/components/StatsCard'
 import MemoryCard from '@/components/MemoryCard'
-import { memoryAPI } from '@/lib/api'
+import { memoryAPI, monadAPI } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 interface Stats {
   total_memories_on_chain: number
@@ -14,19 +15,34 @@ interface Stats {
 }
 
 export default function Dashboard() {
+  const { principalText, isAuthenticated } = useAuth()
   const [stats, setStats] = useState<Stats | null>(null)
+  const [userMemoryCount, setUserMemoryCount] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     loadStats()
-  }, [])
+  }, [isAuthenticated, principalText])
 
   const loadStats = async () => {
     try {
       setLoading(true)
       const data = await memoryAPI.getStats()
       setStats(data)
+
+      // If user is authenticated, get their memory count
+      if (isAuthenticated && principalText) {
+        try {
+          const userMemories = await monadAPI.search({
+            tags: `principal:${principalText}`,
+            limit: 100
+          })
+          setUserMemoryCount(userMemories.num_results)
+        } catch (err) {
+          console.error('Failed to load user stats:', err)
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load stats')
     } finally {
@@ -44,7 +60,9 @@ export default function Dashboard() {
             <span className="text-gradient">Dashboard</span>
           </h1>
           <p className="text-lg font-medium text-kinic-text-secondary">
-            Monitor your memory operations and blockchain activity
+            {isAuthenticated
+              ? `Your personal dashboard • ${principalText?.slice(0, 8)}...${principalText?.slice(-4)}`
+              : 'Monitor your memory operations and blockchain activity'}
           </p>
         </div>
 
@@ -76,8 +94,20 @@ export default function Dashboard() {
           <>
             {/* Stats Grid */}
             <div className="grid md:grid-cols-4 gap-6 mb-12">
+              {isAuthenticated && (
+                <StatsCard
+                  title="Your Memories"
+                  value={userMemoryCount}
+                  icon={
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  }
+                />
+              )}
+
               <StatsCard
-                title="Total Memories"
+                title={isAuthenticated ? "Global Memories" : "Total Memories"}
                 value={stats?.total_memories_on_chain || 0}
                 icon={
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

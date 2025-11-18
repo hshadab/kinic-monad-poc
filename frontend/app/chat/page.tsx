@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Nav from '@/components/Nav'
 import Chat from '@/components/Chat'
 import { chatAPI } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -13,6 +14,7 @@ interface Message {
 }
 
 export default function ChatPage() {
+  const { principalText, isAuthenticated } = useAuth()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -31,7 +33,12 @@ export default function ChatPage() {
     setLoading(true)
 
     try {
-      const response = await chatAPI.send({ message: input, top_k: 3 })
+      // Pass principal for user-scoped memory search
+      const response = await chatAPI.send({
+        message: input,
+        top_k: 3,
+        principal: principalText || undefined
+      })
 
       const assistantMessage: Message = {
         role: 'assistant',
@@ -62,7 +69,9 @@ export default function ChatPage() {
             Chat with AI <span className="text-gradient">Memory Agent</span>
           </h1>
           <p className="text-lg font-medium text-kinic-text-secondary">
-            Ask questions and the AI will search your memories for relevant context
+            {isAuthenticated
+              ? `Ask questions and I'll search your private memories • ${principalText?.slice(0, 8)}...${principalText?.slice(-4)}`
+              : 'Ask questions and the AI will search your memories for relevant context'}
           </p>
         </div>
 

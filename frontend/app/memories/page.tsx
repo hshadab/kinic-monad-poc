@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Nav from '@/components/Nav'
 import { memoryAPI } from '@/lib/api'
+import { useAuth } from '@/lib/useAuth'
 
 interface Memory {
   title: string
@@ -17,6 +18,7 @@ interface Memory {
 }
 
 export default function Memories() {
+  const { principalText, isAuthenticated } = useAuth()
   const [memories, setMemories] = useState<Memory[]>([])
   const [loading, setLoading] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -80,7 +82,8 @@ export default function Memories() {
 
     try {
       setInserting(true)
-      const result = await memoryAPI.insertMemory(content, tags)
+      // Pass principal for user isolation
+      const result = await memoryAPI.insertMemory(content, tags, principalText || undefined)
 
       setSuccess(`Memory inserted! Transaction: ${result.monad_tx.slice(0, 16)}...`)
       setContent('')
@@ -107,7 +110,8 @@ export default function Memories() {
       setSearchMode(true)
       setError(null)
 
-      const results = await memoryAPI.searchMemories(query, 10)
+      // Pass principal for user isolation
+      const results = await memoryAPI.searchMemories(query, 10, principalText || undefined)
 
       // Convert Kinic search results to Memory format
       const formattedMemories = results.map((r: any) => ({
@@ -146,7 +150,9 @@ export default function Memories() {
               <span className="text-gradient">Memories</span>
             </h1>
             <p className="text-lg font-medium text-kinic-text-secondary">
-              Browse and manage your stored memories on Kinic
+              {isAuthenticated
+                ? `Your private memories • ${principalText?.slice(0, 8)}...${principalText?.slice(-4)}`
+                : 'Browse and manage your stored memories on Kinic'}
             </p>
           </div>
 
