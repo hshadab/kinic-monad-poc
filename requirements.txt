@@ -4,7 +4,7 @@ uvicorn[standard]==0.32.0
 pydantic==2.10.3
 
 # Internet Computer (pure Python client)
-ic-py>=2.0.0
+ic-py>=1.0.0
 
 # Ethereum/Monad integration
 web3==7.6.0
