@@ -122,4 +122,84 @@ export const healthAPI = {
   },
 };
 
+// Monad Blockchain Metadata Search
+export interface MonadMemory {
+  id: number;
+  user: string;
+  opType: number;  // 0=INSERT, 1=SEARCH
+  title: string;
+  summary: string;
+  tags: string;
+  contentHash: string;
+  timestamp: number;
+}
+
+export interface MonadSearchRequest {
+  tags?: string;
+  title?: string;
+  summary?: string;
+  op_type?: number;
+  limit?: number;
+}
+
+export interface MonadSearchResponse {
+  results: MonadMemory[];
+  num_results: number;
+  source: string;
+}
+
+export interface MonadStatsResponse {
+  synced: boolean;
+  last_sync: string | null;
+  total_memories: number;
+  insert_operations: number;
+  search_operations: number;
+  unique_tags: number;
+  unique_users: number;
+  most_active_user: string | null;
+}
+
+export interface TrendingTag {
+  tag: string;
+  count: number;
+}
+
+export const monadAPI = {
+  // Search Monad metadata
+  search: async (request: MonadSearchRequest): Promise<MonadSearchResponse> => {
+    const { data } = await api.post('/monad/search', request);
+    return data;
+  },
+
+  // Get cache statistics
+  getStats: async (): Promise<MonadStatsResponse> => {
+    const { data } = await api.get('/monad/stats');
+    return data;
+  },
+
+  // Get trending tags
+  getTrending: async (limit: number = 10): Promise<TrendingTag[]> => {
+    const { data } = await api.get(`/monad/trending?limit=${limit}`);
+    return data;
+  },
+
+  // Refresh cache from blockchain
+  refresh: async () => {
+    const { data } = await api.post('/monad/refresh');
+    return data;
+  },
+
+  // Convenience: Search by tags
+  searchByTags: async (tags: string, limit: number = 20): Promise<MonadMemory[]> => {
+    const response = await monadAPI.search({ tags, limit });
+    return response.results;
+  },
+
+  // Convenience: Get recent memories
+  getRecent: async (limit: number = 20): Promise<MonadMemory[]> => {
+    const response = await monadAPI.search({ limit });
+    return response.results;
+  },
+};
+
 export default api;
