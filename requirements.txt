@@ -3,8 +3,8 @@ fastapi==0.115.0
 uvicorn[standard]==0.32.0
 pydantic==2.10.3
 
-# Internet Computer / Kinic integration
-kinic-py>=0.1.0  # Python bindings for Kinic CLI (requires building from source)
+# NOTE: kinic-py is installed separately in Dockerfile from source
+# It's not on PyPI, built via setuptools-rust in Docker build
 
 # Ethereum/Monad integration
 web3==7.6.0
