@@ -17,12 +17,14 @@ class InsertRequest(BaseModel):
     """Request to insert memory"""
     content: str = Field(..., description="Content to store in memory")
     user_tags: Optional[str] = Field("", description="Optional user-provided tags")
+    principal: Optional[str] = Field(None, description="Internet Identity principal for user isolation")
 
     class Config:
         json_schema_extra = {
             "example": {
                 "content": "# ZKML\nJolt Atlas enables zero-knowledge proofs for ML inference...",
-                "user_tags": "zkml,research"
+                "user_tags": "zkml,research",
+                "principal": "abc12-def34-..."
             }
         }
 
@@ -31,6 +33,7 @@ class SearchRequest(BaseModel):
     """Request to search memory"""
     query: str = Field(..., min_length=1, description="Search query")
     top_k: Optional[int] = Field(5, ge=1, le=20, description="Number of results to return")
+    principal: Optional[str] = Field(None, description="Internet Identity principal for user isolation")
 
     class Config:
         json_schema_extra = {
@@ -74,6 +77,7 @@ class ChatRequest(BaseModel):
     """Request to chat with AI agent"""
     message: str = Field(..., min_length=1, description="User message")
     top_k: Optional[int] = Field(3, ge=1, le=10, description="Number of memories to use as context")
+    principal: Optional[str] = Field(None, description="Internet Identity principal for user isolation")
 
     class Config:
         json_schema_extra = {

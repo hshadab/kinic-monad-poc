@@ -114,7 +114,7 @@ class KinicClient:
             # Return empty list on error
             return []
 
-    async def insert(self, content: str, tag: str = "general") -> Dict:
+    async def insert(self, content: str, tag: str = "general", principal: str = None) -> Dict:
         """
         Insert content into Kinic memory via IC
 
@@ -123,6 +123,7 @@ class KinicClient:
         Args:
             content: Text content to store
             tag: Tag to associate with content (used in text)
+            principal: Internet Identity principal for user isolation (optional)
 
         Returns:
             Result dictionary
@@ -143,8 +144,14 @@ class KinicClient:
             embedding_vector = embeddings[0]
             print(f"Got embedding vector of length {len(embedding_vector)}")
 
-            # 2. Prepare text with tag
-            tagged_text = f"{tag}: {content}"
+            # 2. Prepare text with tag (prepend principal for user isolation)
+            if principal:
+                final_tag = f"{principal}|{tag}"
+                print(f"Using principal-scoped tag: {final_tag[:50]}...")
+            else:
+                final_tag = tag
+
+            tagged_text = f"{final_tag}: {content}"
 
             # 3. Encode arguments: (vec float32, text)
             # ic-py candid encoding
@@ -170,7 +177,7 @@ class KinicClient:
                 "status": "inserted",
                 "memory_id": memory_id,
                 "embedding_dim": len(embedding_vector),
-                "tag": tag
+                "tag": final_tag
             }
 
         except Exception as e:
@@ -183,7 +190,7 @@ class KinicClient:
                 "tag": tag
             }
 
-    async def search(self, query: str, top_k: int = 5) -> List[Dict]:
+    async def search(self, query: str, top_k: int = 5, principal: str = None) -> List[Dict]:
         """
         Search Kinic memory via IC
 
@@ -192,6 +199,7 @@ class KinicClient:
         Args:
             query: Search query string
             top_k: Number of results (note: canister returns all, we filter)
+            principal: Internet Identity principal for user isolation (optional)
 
         Returns:
             List of search results with score and text
@@ -232,22 +240,44 @@ class KinicClient:
                 )}
             ])[0]
 
-            print(f"Got {len(search_results)} search results")
+            print(f"Got {len(search_results)} search results from canister")
 
-            # 5. Format results and limit to top_k
+            # 5. Format results and filter by principal if provided
             formatted_results = []
-            for score, text in search_results[:top_k]:
+            for score, text in search_results:
                 # Extract tag if present
                 tag = ""
                 if ":" in text:
                     tag, text = text.split(":", 1)
                     text = text.strip()
 
+                tag = tag.strip()
+
+                # Filter by principal if provided
+                if principal:
+                    # Check if tag starts with principal (format: "principal|actualtag")
+                    if not tag.startswith(f"{principal}|"):
+                        continue  # Skip this result, doesn't match user's principal
+
+                    # Extract actual tag after principal prefix
+                    if "|" in tag:
+                        _, actual_tag = tag.split("|", 1)
+                        tag = actual_tag
+
                 formatted_results.append({
                     "score": float(score),
                     "text": text,
-                    "tag": tag.strip()
+                    "tag": tag
                 })
+
+                # Limit to top_k after filtering
+                if len(formatted_results) >= top_k:
+                    break
+
+            if principal:
+                print(f"Filtered to {len(formatted_results)} results for principal {principal[:10]}...")
+            else:
+                print(f"Returning {len(formatted_results)} results (no principal filter)")
 
             return formatted_results
 

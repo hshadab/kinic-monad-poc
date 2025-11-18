@@ -188,9 +188,12 @@ async def insert_memory(request: InsertRequest):
 
         # 1. Insert into Kinic memory (Internet Computer)
         print("  -> Storing in Kinic...")
+        if request.principal:
+            print(f"   Using principal isolation: {request.principal[:10]}...")
         kinic_result = await kinic.insert(
             content=request.content,
-            tag=request.user_tags or "general"
+            tag=request.user_tags or "general",
+            principal=request.principal
         )
         print(f"   Stored in Kinic")
 
@@ -200,12 +203,17 @@ async def insert_memory(request: InsertRequest):
         print(f"   Title: '{metadata.title[:50]}...'")
         print(f"   Tags: {metadata.tags}")
 
-        # 3. Log to Monad with rich metadata
+        # 3. Log to Monad with rich metadata (include principal in tags for audit trail)
         print("  -> Logging to Monad blockchain...")
+        monad_tags = metadata.tags
+        if request.principal:
+            monad_tags = f"{metadata.tags},principal:{request.principal}"
+            print(f"   Including principal in on-chain metadata")
+
         monad_tx = await monad.log_insert(
             title=metadata.title,
             summary=metadata.summary,
-            tags=metadata.tags,
+            tags=monad_tags,
             content_hash=metadata.content_hash
         )
         print(f"   Logged to Monad: {monad_tx[:16]}...")
@@ -242,9 +250,12 @@ async def search_memory(request: SearchRequest):
 
         # 1. Search Kinic memory
         print("  -> Searching Kinic...")
+        if request.principal:
+            print(f"   Filtering by principal: {request.principal[:10]}...")
         kinic_results = await kinic.search(
             query=request.query,
-            top_k=request.top_k
+            top_k=request.top_k,
+            principal=request.principal
         )
         print(f"   Found {len(kinic_results)} results")
 
@@ -252,12 +263,16 @@ async def search_memory(request: SearchRequest):
         print("  -> Extracting metadata...")
         metadata = extract_metadata(request.query, "search")
 
-        # 3. Log search to Monad
+        # 3. Log search to Monad (include principal in tags for audit trail)
         print("  -> Logging search to Monad...")
+        monad_tags = metadata.tags
+        if request.principal:
+            monad_tags = f"{metadata.tags},principal:{request.principal}"
+
         monad_tx = await monad.log_search(
             title=f"Search: {metadata.title}",
             summary=metadata.summary,
-            tags=metadata.tags,
+            tags=monad_tags,
             content_hash=metadata.content_hash
         )
         print(f"   Logged to Monad: {monad_tx[:16]}...")
@@ -324,9 +339,12 @@ async def chat_with_agent(request: ChatRequest):
 
         # 1. Search Kinic for relevant context
         print("  -> Searching Kinic for context...")
+        if request.principal:
+            print(f"   Using principal: {request.principal[:10]}...")
         kinic_results = await kinic.search(
             query=request.message,
-            top_k=request.top_k
+            top_k=request.top_k,
+            principal=request.principal
         )
 
         # Format results for AI agent
@@ -361,11 +379,15 @@ async def chat_with_agent(request: ChatRequest):
             "chat,conversation"
         )
 
-        # 4. Log to Monad
+        # 4. Log to Monad (include principal in tags for audit trail)
+        monad_tags = conversation_metadata.tags
+        if request.principal:
+            monad_tags = f"{conversation_metadata.tags},principal:{request.principal}"
+
         monad_tx = await monad.log_insert(
             title=f"Chat: {conversation_metadata.title}",
             summary=conversation_metadata.summary,
-            tags=conversation_metadata.tags,
+            tags=monad_tags,
             content_hash=conversation_metadata.content_hash
         )
         print(f"   Logged to Monad: {monad_tx[:16]}...")
