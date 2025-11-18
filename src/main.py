@@ -4,6 +4,7 @@ Integrates Kinic (IC) memory storage with Monad blockchain logging
 """
 import os
 from pathlib import Path
+from typing import List
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
