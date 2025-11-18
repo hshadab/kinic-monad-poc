@@ -338,9 +338,14 @@ async def chat_with_agent(request: ChatRequest):
 
         # 2. Generate AI response with context
         print("  -> Generating AI response with Claude...")
+
+        # Create async wrapper for memories (ai_agent expects async search_function)
+        async def _return_memories(q, k):
+            return memories
+
         response_text, _ = await ai_agent.chat_with_memory_search(
             message=request.message,
-            search_function=lambda q, k: memories,  # Use already searched memories
+            search_function=_return_memories,
             top_k=request.top_k
         )
         print(f"   AI response generated ({len(response_text)} chars)")
