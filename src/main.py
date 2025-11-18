@@ -18,7 +18,7 @@ from src.models import (
     SearchResponse, SearchResult, HealthResponse,
     ChatRequest, ChatResponse
 )
-from src.kinic_runner import KinicRunner
+from src.kinic_client import KinicClient
 from src.metadata import extract_metadata
 from src.monad import MonadLogger
 from src.ai_agent import AIAgent
@@ -26,7 +26,7 @@ from src.credential_manager import get_credential_manager, CredentialKey
 
 
 # Global instances
-kinic: KinicRunner = None
+kinic: KinicClient = None
 monad: MonadLogger = None
 ai_agent: AIAgent = None
 
@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     # Load configuration from keyring with fallback to environment variables
     print("\nLoading credentials from OS keyring...")
     memory_id = cred_mgr.get_credential(CredentialKey.KINIC_MEMORY_ID, fallback_env_var="KINIC_MEMORY_ID")
-    identity = cred_mgr.get_credential(CredentialKey.IC_IDENTITY_NAME, fallback_env_var="IC_IDENTITY_NAME") or "default"
+    identity_pem = os.getenv("IC_IDENTITY_PEM")  # PEM string for pure Python client
     monad_rpc = cred_mgr.get_credential(CredentialKey.MONAD_RPC_URL, fallback_env_var="MONAD_RPC_URL") or "https://testnet-rpc.monad.xyz"
     monad_key = cred_mgr.get_credential(CredentialKey.MONAD_PRIVATE_KEY, fallback_env_var="MONAD_PRIVATE_KEY")
     monad_contract = os.getenv("MONAD_CONTRACT_ADDRESS")  # Keep this as env var for now
@@ -55,6 +55,8 @@ async def lifespan(app: FastAPI):
     # Validate required credentials
     if not memory_id:
         raise ValueError("KINIC_MEMORY_ID not found in keyring or environment variables. Run setup_credentials.py first.")
+    if not identity_pem:
+        raise ValueError("IC_IDENTITY_PEM environment variable required for pure Python client")
     if not monad_key:
         raise ValueError("MONAD_PRIVATE_KEY not found in keyring or environment variables. Run setup_credentials.py first.")
     if not monad_contract:
@@ -64,9 +66,9 @@ async def lifespan(app: FastAPI):
 
     print("Credentials loaded successfully")
 
-    # Initialize Kinic runner
-    print("\nInitializing Kinic Runner...")
-    kinic = KinicRunner(memory_id=memory_id, identity=identity, ic=True)
+    # Initialize Kinic client (pure Python)
+    print("\nInitializing Kinic Client (pure Python)...")
+    kinic = KinicClient(memory_id=memory_id, identity_pem=identity_pem)
 
     # Initialize Monad logger
     print("\nInitializing Monad Logger...")
@@ -215,7 +217,7 @@ async def search_memory(request: SearchRequest):
         print("  -> Searching Kinic...")
         kinic_results = await kinic.search(
             query=request.query,
-            format="json"
+            top_k=request.top_k
         )
         print(f"   Found {len(kinic_results)} results")
 
@@ -297,7 +299,7 @@ async def chat_with_agent(request: ChatRequest):
         print("  -> Searching Kinic for context...")
         kinic_results = await kinic.search(
             query=request.message,
-            format="json"
+            top_k=request.top_k
         )
 
         # Format results for AI agent

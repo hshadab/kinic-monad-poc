@@ -1,33 +1,7 @@
-# Multi-stage build for Kinic Memory Agent on Monad with Python Bindings
-# Stage 1: Build kinic-py Python bindings (Rust + Python)
-FROM python:3.11-slim as builder
+# Pure Python Dockerfile for Kinic Memory Agent on Monad
+# No Rust needed - uses ic-py for Internet Computer interaction
 
-# Install Rust and build dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    pkg-config \
-    libssl-dev \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
-WORKDIR /build
-
-# Clone kinic-cli from POC branch
-RUN git clone -b poc https://github.com/ICME-Lab/kinic-cli.git
-WORKDIR /build/kinic-cli
-
-# Install build tools
-RUN pip install --no-cache-dir setuptools-rust setuptools wheel
-
-# Build kinic-py wheel package
-RUN pip wheel --no-deps --wheel-dir /build/wheels .
-
-# Stage 2: Build Next.js frontend
+# Stage 1: Build Next.js frontend
 FROM node:18-slim as frontend-builder
 
 WORKDIR /frontend
@@ -44,7 +18,7 @@ ENV NEXT_PUBLIC_API_URL=''
 
 RUN npm run build
 
-# Stage 3: Runtime environment
+# Stage 2: Runtime environment (pure Python)
 FROM python:3.11-slim
 
 # Set UTF-8 encoding for Python to handle Unicode characters in logs
@@ -60,18 +34,12 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy built kinic-py wheel from builder
-COPY --from=builder /build/wheels/*.whl /tmp/
-
 # Copy Next.js built frontend from frontend-builder
 COPY --from=frontend-builder /frontend/out /app/frontend/out
 
 # Copy Python requirements and install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Install kinic-py from the pre-built wheel
-RUN pip install --no-cache-dir /tmp/*.whl && rm -rf /tmp/*.whl
 
 # Copy application code
 COPY src/ ./src/
@@ -89,18 +57,14 @@ export LC_ALL=C.UTF-8\n\
 \n\
 # Write IC identity PEM from environment variable if provided\n\
 if [ ! -z "$IC_IDENTITY_PEM" ]; then\n\
-    echo "Writing IC identity from environment variable..."\n\
-    printf "%s\\n" "$IC_IDENTITY_PEM" > /root/.config/dfx/identity/default/identity.pem\n\
-    chmod 600 /root/.config/dfx/identity/default/identity.pem\n\
-    echo "IC identity file created:"\n\
-    ls -la /root/.config/dfx/identity/default/identity.pem\n\
-    echo "IC identity configured successfully"\n\
+    echo "IC identity PEM provided in environment (pure Python client)"\n\
+    echo "✅ Pure Python ic-py client will use IC_IDENTITY_PEM directly"\n\
 else\n\
     echo "WARNING: IC_IDENTITY_PEM not set - Kinic functionality will be limited"\n\
 fi\n\
 \n\
-# Verify kinic_py is installed\n\
-python3 -c "import kinic_py; print(\"✅ kinic_py version:\", kinic_py.__version__)" || echo "WARNING: kinic_py not installed"\n\
+# Verify ic-py is installed\n\
+python3 -c "from ic.client import Client; print(\"✅ ic-py installed successfully\")" || echo "WARNING: ic-py not installed"\n\
 \n\
 # Start the application\n\
 exec uvicorn src.main:app --host 0.0.0.0 --port 8000\n\
