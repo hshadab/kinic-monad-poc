@@ -6,16 +6,20 @@ import os
 from pathlib import Path
 from typing import List
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Load environment variables from .env file in project root
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
+from src.auth import verify_api_key
 from src.models import (
     InsertRequest, SearchRequest, InsertResponse,
     SearchResponse, SearchResult, HealthResponse,
@@ -36,6 +40,9 @@ kinic: KinicClient = None
 monad: MonadLogger = None
 monad_cache: MonadCache = None
 ai_agent: AIAgent = None
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 
 @asynccontextmanager
@@ -117,6 +124,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Add rate limiter to app
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # CORS middleware - Secure configuration
 # Get allowed origins from environment variable (comma-separated)
 # Default includes production URL and common local development URLs
@@ -170,7 +181,8 @@ async def health():
 
 
 @app.post("/insert", response_model=InsertResponse)
-async def insert_memory(request: InsertRequest):
+@limiter.limit("20/minute")
+async def insert_memory(req: Request, request: InsertRequest, api_key: str = Depends(verify_api_key)):
     """
     Insert content into Kinic memory and log metadata to Monad
 
@@ -232,7 +244,8 @@ async def insert_memory(request: InsertRequest):
 
 
 @app.post("/search", response_model=SearchResponse)
-async def search_memory(request: SearchRequest):
+@limiter.limit("30/minute")
+async def search_memory(req: Request, request: SearchRequest, api_key: str = Depends(verify_api_key)):
     """
     Search Kinic memory and log search to Monad
 
@@ -320,7 +333,8 @@ async def get_stats():
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat_with_agent(request: ChatRequest):
+@limiter.limit("10/minute")
+async def chat_with_agent(req: Request, request: ChatRequest, api_key: str = Depends(verify_api_key)):
     """
     Chat with AI agent (Claude) with memory context
 

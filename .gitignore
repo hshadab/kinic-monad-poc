@@ -65,6 +65,8 @@ tmp/
 temp/
 *.tmp
 *.bak
+*.backup
+*.old
 
 # Frontend / Next.js
 frontend/node_modules/
@@ -73,3 +75,6 @@ frontend/out/
 frontend/.turbo/
 frontend/dist/
 kinic-cli/
+
+# Node modules (any depth)
+**/node_modules/
