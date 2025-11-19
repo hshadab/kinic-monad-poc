@@ -5,7 +5,11 @@ export const metadata: Metadata = {
   title: 'Kinic Memory Agent on Monad',
   description: 'AI-powered memory agent with Kinic storage and Monad blockchain transparency',
   icons: {
-    icon: '/favicon.png',
+    icon: [
+      { url: '/favicon.png' },
+      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/icon.png',
   },
 }
 
