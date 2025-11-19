@@ -144,12 +144,12 @@ export default function Memories() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="flex justify-between items-start mb-8">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-black text-kinic-dark mb-3 uppercase tracking-tight">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-start gap-4 mb-8">
+          <div className="flex-1">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-kinic-dark mb-3 uppercase tracking-tight">
               <span className="text-gradient">Memories</span>
             </h1>
-            <p className="text-lg font-medium text-kinic-text-secondary">
+            <p className="text-base sm:text-lg font-medium text-kinic-text-secondary">
               {isAuthenticated
                 ? `Your private memories • ${principalText?.slice(0, 8)}...${principalText?.slice(-4)}`
                 : 'Browse and manage your stored memories on Kinic'}
@@ -158,7 +158,7 @@ export default function Memories() {
 
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="btn-brutalist px-6 py-3 bg-kinic-orange text-white"
+            className="btn-brutalist px-6 py-3 bg-kinic-orange text-white min-h-[48px] w-full sm:w-auto"
           >
             {showAddForm ? 'Cancel' : '+ Add Memory'}
           </button>
@@ -213,11 +213,11 @@ export default function Memories() {
                 />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex flex-col sm:flex-row gap-4">
                 <button
                   type="submit"
                   disabled={inserting}
-                  className="btn-brutalist px-8 py-3 bg-kinic-cyan text-white disabled:opacity-50"
+                  className="btn-brutalist px-8 py-3 bg-kinic-cyan text-white disabled:opacity-50 min-h-[48px]"
                 >
                   {inserting ? 'Saving to Kinic...' : 'Save Memory'}
                 </button>
@@ -225,7 +225,7 @@ export default function Memories() {
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="btn-brutalist px-8 py-3 bg-white text-kinic-dark"
+                  className="btn-brutalist px-8 py-3 bg-white text-kinic-dark min-h-[48px]"
                 >
                   Cancel
                 </button>
@@ -236,13 +236,13 @@ export default function Memories() {
 
         {/* Search Bar */}
         <div className="card mb-8">
-          <div className="flex gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <input
               type="text"
               placeholder="Search your memories with Kinic AI..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-white border-4 border-black px-4 py-3 text-kinic-dark font-medium"
+              className="flex-1 bg-white border-4 border-black px-4 py-3 text-kinic-dark font-medium min-h-[48px]"
               style={{ boxShadow: '4px 4px 0 0 #000' }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -250,20 +250,22 @@ export default function Memories() {
                 }
               }}
             />
-            <button
-              onClick={() => handleSearch(searchQuery)}
-              className="btn-brutalist px-6 py-3 bg-kinic-cyan text-white"
-            >
-              Search
-            </button>
-            {searchMode && (
+            <div className="flex gap-3 sm:gap-4">
               <button
-                onClick={loadMemories}
-                className="btn-brutalist px-6 py-3 bg-white text-kinic-dark"
+                onClick={() => handleSearch(searchQuery)}
+                className="btn-brutalist px-6 py-3 bg-kinic-cyan text-white min-h-[48px] flex-1 sm:flex-none"
               >
-                Show All
+                Search
               </button>
-            )}
+              {searchMode && (
+                <button
+                  onClick={loadMemories}
+                  className="btn-brutalist px-6 py-3 bg-white text-kinic-dark min-h-[48px] flex-1 sm:flex-none"
+                >
+                  Show All
+                </button>
+              )}
+            </div>
           </div>
           {searchMode && (
             <div className="mt-4 text-sm font-bold text-kinic-dark">

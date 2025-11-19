@@ -100,13 +100,13 @@ export default function Discover() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-4xl md:text-5xl font-black text-kinic-dark uppercase tracking-tight">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-kinic-dark uppercase tracking-tight">
               <span className="text-gradient">Discover</span>
             </h1>
             <button
               onClick={handleRefresh}
-              className="btn-brutalist px-4 py-2 bg-kinic-purple text-white text-sm"
+              className="btn-brutalist px-4 py-3 bg-kinic-purple text-white text-sm min-h-[48px]"
               disabled={loading}
             >
               🔄 Refresh Cache
@@ -148,10 +148,10 @@ export default function Discover() {
           <h2 className="text-2xl font-black text-kinic-dark mb-4 uppercase">Search Monad Metadata</h2>
 
           {/* Search Type Selector */}
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4">
             <button
               onClick={() => setSearchType('tags')}
-              className={`px-4 py-2 font-bold uppercase text-sm border-3 border-black ${
+              className={`px-4 py-3 md:py-2 font-bold uppercase text-sm border-3 border-black ${
                 searchType === 'tags'
                   ? 'bg-kinic-cyan text-white'
                   : 'bg-white text-kinic-dark'
@@ -162,7 +162,7 @@ export default function Discover() {
             </button>
             <button
               onClick={() => setSearchType('title')}
-              className={`px-4 py-2 font-bold uppercase text-sm border-3 border-black ${
+              className={`px-4 py-3 md:py-2 font-bold uppercase text-sm border-3 border-black ${
                 searchType === 'title'
                   ? 'bg-kinic-cyan text-white'
                   : 'bg-white text-kinic-dark'
@@ -173,7 +173,7 @@ export default function Discover() {
             </button>
             <button
               onClick={() => { setSearchType('recent'); handleSearch(); }}
-              className={`px-4 py-2 font-bold uppercase text-sm border-3 border-black ${
+              className={`px-4 py-3 md:py-2 font-bold uppercase text-sm border-3 border-black ${
                 searchType === 'recent'
                   ? 'bg-kinic-cyan text-white'
                   : 'bg-white text-kinic-dark'
@@ -186,7 +186,7 @@ export default function Discover() {
 
           {/* Search Input */}
           {searchType !== 'recent' && (
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <input
                 type="text"
                 placeholder={
@@ -196,7 +196,7 @@ export default function Discover() {
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="flex-1 bg-white border-4 border-black px-4 py-3 text-kinic-dark font-medium"
+                className="flex-1 bg-white border-4 border-black px-4 py-3 text-kinic-dark font-medium min-h-[48px]"
                 style={{ boxShadow: '4px 4px 0 0 #000' }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -206,7 +206,7 @@ export default function Discover() {
               />
               <button
                 onClick={handleSearch}
-                className="btn-brutalist px-6 py-3 bg-kinic-orange text-white"
+                className="btn-brutalist px-6 py-3 bg-kinic-orange text-white min-h-[48px]"
                 disabled={loading}
               >
                 {loading ? 'Searching...' : 'Search'}
@@ -215,35 +215,35 @@ export default function Discover() {
           )}
 
           {/* Operation Type Filter */}
-          <div className="flex gap-3 mt-4">
-            <span className="text-sm font-bold text-kinic-dark uppercase">Filter:</span>
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="flex flex-wrap gap-3 mt-4">
+            <span className="text-sm font-bold text-kinic-dark uppercase w-full sm:w-auto">Filter:</span>
+            <label className="flex items-center gap-2 cursor-pointer min-h-[44px]">
               <input
                 type="radio"
                 name="opType"
                 checked={filterOpType === undefined}
                 onChange={() => setFilterOpType(undefined)}
-                className="w-4 h-4"
+                className="w-5 h-5"
               />
               <span className="text-sm font-bold text-kinic-dark uppercase">All</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer min-h-[44px]">
               <input
                 type="radio"
                 name="opType"
                 checked={filterOpType === 0}
                 onChange={() => setFilterOpType(0)}
-                className="w-4 h-4"
+                className="w-5 h-5"
               />
               <span className="text-sm font-bold text-kinic-dark uppercase">Inserts Only</span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 cursor-pointer min-h-[44px]">
               <input
                 type="radio"
                 name="opType"
                 checked={filterOpType === 1}
                 onChange={() => setFilterOpType(1)}
-                className="w-4 h-4"
+                className="w-5 h-5"
               />
               <span className="text-sm font-bold text-kinic-dark uppercase">Searches Only</span>
             </label>

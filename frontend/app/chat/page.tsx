@@ -65,10 +65,10 @@ export default function ChatPage() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-black text-kinic-dark mb-3 uppercase tracking-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-kinic-dark mb-3 uppercase tracking-tight">
             Chat with AI <span className="text-gradient">Memory Agent</span>
           </h1>
-          <p className="text-lg font-medium text-kinic-text-secondary">
+          <p className="text-base sm:text-lg font-medium text-kinic-text-secondary">
             {isAuthenticated
               ? `Ask questions and I'll search your private memories • ${principalText?.slice(0, 8)}...${principalText?.slice(-4)}`
               : 'Ask questions and the AI will search your memories for relevant context'}
@@ -133,13 +133,13 @@ export default function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask a question..."
               disabled={loading}
-              className="w-full bg-white border-4 border-black px-6 py-4 pr-16 text-kinic-dark placeholder-kinic-text-secondary font-medium focus:outline-none disabled:opacity-50"
+              className="w-full bg-white border-4 border-black px-4 sm:px-6 py-4 pr-14 sm:pr-16 text-kinic-dark placeholder-kinic-text-secondary font-medium focus:outline-none disabled:opacity-50 min-h-[56px]"
               style={{ boxShadow: '6px 6px 0 0 #000' }}
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-3 bg-gradient-monad border-3 border-black disabled:opacity-50 disabled:cursor-not-allowed hover:transform hover:-translate-y-1 transition-all duration-100"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-3 sm:p-4 bg-gradient-monad border-3 border-black disabled:opacity-50 disabled:cursor-not-allowed hover:transform hover:-translate-y-1 transition-all duration-100 min-w-[48px] min-h-[48px]"
               style={{ boxShadow: '4px 4px 0 0 #000' }}
             >
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
