@@ -69,10 +69,11 @@ export function useAuth() {
       const isLocalhost = window.location.hostname === 'localhost' ||
                          window.location.hostname === '127.0.0.1';
 
-      // Use Internet Identity 2.0 URL for production
+      // Use Internet Identity 2.0 URL (https://id.ai) for production
+      // This enables Gmail, Apple, and other OAuth login methods
       const identityProvider = isLocalhost
         ? `http://localhost:4943/?canisterId=${process.env.NEXT_PUBLIC_INTERNET_IDENTITY_CANISTER_ID || 'rdmx6-jaaaa-aaaaa-aaadq-cai'}`
-        : 'https://identity.internetcomputer.org';
+        : 'https://id.ai/';
 
       await authState.authClient.login({
         identityProvider,
