@@ -69,13 +69,22 @@ export function useAuth() {
       const isLocalhost = window.location.hostname === 'localhost' ||
                          window.location.hostname === '127.0.0.1';
 
+      // Use Internet Identity 2.0 URL for production
       const identityProvider = isLocalhost
         ? `http://localhost:4943/?canisterId=${process.env.NEXT_PUBLIC_INTERNET_IDENTITY_CANISTER_ID || 'rdmx6-jaaaa-aaaaa-aaadq-cai'}`
-        : 'https://identity.ic0.app';
+        : 'https://identity.internetcomputer.org';
 
       await authState.authClient.login({
         identityProvider,
         maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days in nanoseconds
+
+        // Enable Internet Identity 2.0 features
+        // This allows users to authenticate with Gmail, Apple, and other methods
+        allowPinAuthentication: true,
+
+        // Optional: Set derivation origin for consistent principal across domains
+        // derivationOrigin: 'https://kinicmemory.com',
+
         onSuccess: async () => {
           const identity = authState.authClient!.getIdentity();
           const principal = identity.getPrincipal();
