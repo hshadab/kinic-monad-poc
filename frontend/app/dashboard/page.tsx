@@ -6,6 +6,7 @@ import StatsCard from '@/components/StatsCard'
 import MemoryCard from '@/components/MemoryCard'
 import { memoryAPI, monadAPI } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import AuthGuard from '@/components/AuthGuard'
 
 interface Stats {
   total_memories_on_chain: number
@@ -85,8 +86,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-kinic-light via-kinic-light-secondary to-kinic-light-tertiary">
-      <Nav />
+    <AuthGuard>
+      <div className="min-h-screen bg-gradient-to-br from-kinic-light via-kinic-light-secondary to-kinic-light-tertiary">
+        <Nav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
@@ -289,5 +291,6 @@ export default function Dashboard() {
         )}
       </main>
     </div>
+    </AuthGuard>
   )
 }

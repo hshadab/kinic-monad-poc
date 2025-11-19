@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Nav from '@/components/Nav'
 import { memoryAPI } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import AuthGuard from '@/components/AuthGuard'
 
 interface Memory {
   title: string
@@ -139,8 +140,9 @@ export default function Memories() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-kinic-light via-kinic-light-secondary to-kinic-light-tertiary">
-      <Nav />
+    <AuthGuard>
+      <div className="min-h-screen bg-gradient-to-br from-kinic-light via-kinic-light-secondary to-kinic-light-tertiary">
+        <Nav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -382,5 +384,6 @@ export default function Memories() {
         )}
       </main>
     </div>
+    </AuthGuard>
   )
 }

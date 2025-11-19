@@ -592,6 +592,10 @@ if frontend_path.exists():
     async def serve_discover():
         return FileResponse(frontend_path / "discover.html")
 
+    @app.get("/about")
+    async def serve_about():
+        return FileResponse(frontend_path / "about.html")
+
     # Serve index.html for root
     @app.get("/")
     async def serve_root():

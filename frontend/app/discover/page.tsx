@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Nav from '@/components/Nav'
 import { monadAPI, MonadMemory, TrendingTag, MonadStatsResponse } from '@/lib/api'
+import AuthGuard from '@/components/AuthGuard'
 
 export default function Discover() {
   const [memories, setMemories] = useState<MonadMemory[]>([])
@@ -94,8 +95,9 @@ export default function Discover() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-kinic-light via-kinic-light-secondary to-kinic-light-tertiary">
-      <Nav />
+    <AuthGuard>
+      <div className="min-h-screen bg-gradient-to-br from-kinic-light via-kinic-light-secondary to-kinic-light-tertiary">
+        <Nav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -364,5 +366,6 @@ export default function Discover() {
         )}
       </main>
     </div>
+    </AuthGuard>
   )
 }

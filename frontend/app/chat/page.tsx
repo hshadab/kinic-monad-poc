@@ -5,6 +5,7 @@ import Nav from '@/components/Nav'
 import Chat from '@/components/Chat'
 import { chatAPI } from '@/lib/api'
 import { useAuth } from '@/lib/useAuth'
+import AuthGuard from '@/components/AuthGuard'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -60,10 +61,11 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-kinic-light via-kinic-light-secondary to-kinic-light-tertiary">
-      <Nav />
+    <AuthGuard>
+      <div className="min-h-screen bg-gradient-to-br from-kinic-light via-kinic-light-secondary to-kinic-light-tertiary">
+        <Nav />
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-kinic-dark mb-3 uppercase tracking-tight">
             Chat with AI <span className="text-gradient">Memory Agent</span>
@@ -153,5 +155,6 @@ export default function ChatPage() {
         </div>
       </main>
     </div>
+    </AuthGuard>
   )
 }
