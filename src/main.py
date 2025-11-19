@@ -380,17 +380,24 @@ async def chat_with_agent(request: ChatRequest):
         )
 
         # 4. Log to Monad (include principal in tags for audit trail)
-        monad_tags = conversation_metadata.tags
-        if request.principal:
-            monad_tags = f"{conversation_metadata.tags},principal:{request.principal}"
+        # Note: Monad logging failure should not block chat functionality
+        monad_tx = "pending"
+        try:
+            monad_tags = conversation_metadata.tags
+            if request.principal:
+                monad_tags = f"{conversation_metadata.tags},principal:{request.principal}"
 
-        monad_tx = await monad.log_insert(
-            title=f"Chat: {conversation_metadata.title}",
-            summary=conversation_metadata.summary,
-            tags=monad_tags,
-            content_hash=conversation_metadata.content_hash
-        )
-        print(f"   Logged to Monad: {monad_tx[:16]}...")
+            monad_tx = await monad.log_insert(
+                title=f"Chat: {conversation_metadata.title}",
+                summary=conversation_metadata.summary,
+                tags=monad_tags,
+                content_hash=conversation_metadata.content_hash
+            )
+            print(f"   Logged to Monad: {monad_tx[:16]}...")
+        except Exception as monad_error:
+            print(f"   Monad logging failed (non-critical): {monad_error}")
+            print(f"   Continuing with chat response...")
+            monad_tx = f"failed: {str(monad_error)[:50]}"
 
         print(f" CHAT completed successfully!\n")
 
