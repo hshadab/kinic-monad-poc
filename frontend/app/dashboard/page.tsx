@@ -14,10 +14,19 @@ interface Stats {
   agent_address: string
 }
 
+interface RecentActivity {
+  id: number
+  title: string
+  opType: number
+  timestamp: number
+  tags: string
+}
+
 export default function Dashboard() {
   const { principalText, isAuthenticated } = useAuth()
   const [stats, setStats] = useState<Stats | null>(null)
   const [userMemoryCount, setUserMemoryCount] = useState<number>(0)
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,7 +40,7 @@ export default function Dashboard() {
       const data = await memoryAPI.getStats()
       setStats(data)
 
-      // If user is authenticated, get their memory count
+      // If user is authenticated, get their memory count and recent activity
       if (isAuthenticated && principalText) {
         try {
           const userMemories = await monadAPI.search({
@@ -39,8 +48,33 @@ export default function Dashboard() {
             limit: 100
           })
           setUserMemoryCount(userMemories.num_results)
+
+          // Get recent activity (last 10 operations)
+          const recentOps = userMemories.results.slice(0, 10).map((memory: any) => ({
+            id: memory.id,
+            title: memory.title,
+            opType: memory.opType,
+            timestamp: memory.timestamp,
+            tags: memory.tags
+          }))
+          setRecentActivity(recentOps)
         } catch (err) {
           console.error('Failed to load user stats:', err)
+        }
+      } else {
+        // If not authenticated, show global recent activity
+        try {
+          const recentMemories = await monadAPI.getRecent(10)
+          const recentOps = recentMemories.map((memory: any) => ({
+            id: memory.id,
+            title: memory.title,
+            opType: memory.opType,
+            timestamp: memory.timestamp,
+            tags: memory.tags
+          }))
+          setRecentActivity(recentOps)
+        } catch (err) {
+          console.error('Failed to load recent activity:', err)
         }
       }
     } catch (err) {
@@ -197,12 +231,59 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Recent Activity (Placeholder) */}
+            {/* Recent Activity */}
             <div className="card">
-              <h3 className="text-xl font-black text-kinic-dark mb-4 uppercase">Recent Activity</h3>
-              <p className="text-kinic-text-secondary font-medium text-center py-8">
-                No recent activity. Start by <a href="/chat" className="text-kinic-cyan font-bold hover:text-kinic-cyan-light uppercase">chatting with the AI</a>
-              </p>
+              <h3 className="text-xl font-black text-kinic-dark mb-4 uppercase">
+                {isAuthenticated ? 'Your Recent Activity' : 'Global Recent Activity'}
+              </h3>
+
+              {recentActivity.length === 0 ? (
+                <p className="text-kinic-text-secondary font-medium text-center py-8">
+                  No recent activity. Start by <a href="/chat" className="text-kinic-cyan font-bold hover:text-kinic-cyan-light uppercase">chatting with the AI</a>
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-start justify-between p-4 bg-kinic-light border-3 border-black hover:shadow-md transition-all" style={{ boxShadow: '3px 3px 0 0 #000' }}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className={`px-2 py-1 text-xs font-bold uppercase border-2 border-black ${
+                              activity.opType === 0
+                                ? 'bg-kinic-cyan text-white'
+                                : activity.opType === 1
+                                ? 'bg-kinic-purple text-white'
+                                : 'bg-kinic-orange text-white'
+                            }`}
+                            style={{ boxShadow: '2px 2px 0 0 #000' }}
+                          >
+                            {activity.opType === 0 ? 'INSERT' : activity.opType === 1 ? 'SEARCH' : 'CHAT'}
+                          </span>
+                          <span className="text-xs font-bold text-kinic-text-secondary uppercase">
+                            {new Date(activity.timestamp * 1000).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-kinic-dark line-clamp-1 mb-2">
+                          {activity.title}
+                        </p>
+                        {activity.tags && (
+                          <div className="flex flex-wrap gap-1">
+                            {activity.tags.split(',').filter(Boolean).slice(0, 3).map((tag, i) => (
+                              <span
+                                key={i}
+                                className="px-2 py-1 bg-white text-kinic-dark text-xs font-bold border-2 border-black"
+                                style={{ boxShadow: '1px 1px 0 0 #000' }}
+                              >
+                                {tag.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         )}
