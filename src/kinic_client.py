@@ -110,7 +110,8 @@ class KinicClient:
                 print(f"Using last 32 bytes as private key (PKCS8 format)")
 
             print(f"Extracted private key from PEM (length: {len(private_key_hex)})")
-            identity = Identity(privkey=private_key_hex)
+            # EC PRIVATE KEY with secp256k1 curve (OID 1.3.132.0.10)
+            identity = Identity(privkey=private_key_hex, key_type="secp256k1")
             print(f"Generated principal: {identity.sender()}")
             return identity
 
