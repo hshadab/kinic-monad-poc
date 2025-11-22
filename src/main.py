@@ -204,7 +204,12 @@ async def insert_memory(req: Request, request: InsertRequest, api_key: str = Dep
     3. Log rich metadata to Monad blockchain
     4. Return results
     """
+    import sys
+    print(f"[DEBUG] Insert endpoint called", flush=True)
+    sys.stdout.flush()
+
     if not kinic or not monad:
+        print(f"[DEBUG] Services not initialized - kinic={kinic}, monad={monad}", flush=True)
         raise HTTPException(status_code=503, detail="Services not initialized")
 
     try:
