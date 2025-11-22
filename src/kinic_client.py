@@ -91,9 +91,23 @@ class KinicClient:
             if len(der_bytes) < 32:
                 raise ValueError(f"IC_IDENTITY_PEM DER content too short ({len(der_bytes)} bytes, need at least 32)")
 
-            # Extract the private key from DER (last 32 bytes for EC)
-            # This is a simplified extraction - may need adjustment
-            private_key_hex = der_bytes[-32:].hex()
+            # Extract the private key from DER
+            # EC PRIVATE KEY (SEC1) format: the private key is after 0x04 0x20 (OCTET STRING of 32 bytes)
+            # PKCS8 format: different structure
+            private_key_hex = None
+
+            # Try to find the 32-byte private key in SEC1 format
+            # Look for pattern: 0x04 0x20 followed by 32 bytes
+            for i in range(len(der_bytes) - 33):
+                if der_bytes[i] == 0x04 and der_bytes[i+1] == 0x20:
+                    private_key_hex = der_bytes[i+2:i+34].hex()
+                    print(f"Found private key at offset {i+2} (SEC1 format)")
+                    break
+
+            # Fallback: try last 32 bytes (for PKCS8 format)
+            if not private_key_hex:
+                private_key_hex = der_bytes[-32:].hex()
+                print(f"Using last 32 bytes as private key (PKCS8 format)")
 
             print(f"Extracted private key from PEM (length: {len(private_key_hex)})")
             return Identity(privkey=private_key_hex)
