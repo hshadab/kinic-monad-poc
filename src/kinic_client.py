@@ -58,13 +58,29 @@ class KinicClient:
             import base64
             import re
 
+            if not pem_content or not pem_content.strip():
+                raise ValueError("IC_IDENTITY_PEM is empty or not set")
+
+            # Check for valid PEM format
+            if "-----BEGIN" not in pem_content:
+                raise ValueError("IC_IDENTITY_PEM is not in valid PEM format (missing -----BEGIN header)")
+
             # Remove PEM headers/footers
             pem_body = re.sub(r'-----BEGIN.*?-----\n?', '', pem_content)
             pem_body = re.sub(r'-----END.*?-----\n?', '', pem_body)
-            pem_body = pem_body.replace('\n', '').replace('\r', '')
+            pem_body = pem_body.replace('\n', '').replace('\r', '').replace(' ', '')
+
+            if not pem_body:
+                raise ValueError("IC_IDENTITY_PEM has empty body after removing headers")
 
             # Decode base64 to get DER format
-            der_bytes = base64.b64decode(pem_body)
+            try:
+                der_bytes = base64.b64decode(pem_body)
+            except Exception as e:
+                raise ValueError(f"IC_IDENTITY_PEM base64 decode failed: {e}")
+
+            if len(der_bytes) < 32:
+                raise ValueError(f"IC_IDENTITY_PEM DER content too short ({len(der_bytes)} bytes, need at least 32)")
 
             # Extract the private key from DER (last 32 bytes for EC)
             # This is a simplified extraction - may need adjustment
@@ -74,9 +90,9 @@ class KinicClient:
             return Identity(privkey=private_key_hex)
 
         except Exception as e:
-            print(f"Warning: Failed to parse PEM, using random identity: {e}")
-            # Fallback to random identity for testing
-            return Identity()
+            error_msg = f"Failed to parse IC_IDENTITY_PEM: {e}"
+            print(f"ERROR: {error_msg}")
+            raise ValueError(error_msg)
 
     async def get_embeddings(self, text: str) -> List[List[float]]:
         """

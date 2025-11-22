@@ -167,10 +167,22 @@ async def api_info():
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
-    """Health check endpoint"""
+    """Health check endpoint with diagnostics"""
 
     kinic_status = "connected" if kinic else "not initialized"
     monad_status = "connected" if monad and monad.w3.is_connected() else "disconnected"
+
+    # Log environment variable status for debugging
+    env_status = {
+        "KINIC_MEMORY_ID": "set" if os.getenv("KINIC_MEMORY_ID") else "MISSING",
+        "IC_IDENTITY_PEM": "set" if os.getenv("IC_IDENTITY_PEM") else "MISSING",
+        "MONAD_RPC_URL": "set" if os.getenv("MONAD_RPC_URL") else "using default",
+        "MONAD_CONTRACT_ADDRESS": "set" if os.getenv("MONAD_CONTRACT_ADDRESS") else "MISSING",
+        "MONAD_PRIVATE_KEY": "set" if os.getenv("MONAD_PRIVATE_KEY") else "MISSING",
+        "ANTHROPIC_API_KEY": "set" if os.getenv("ANTHROPIC_API_KEY") else "MISSING",
+    }
+
+    print(f"Health check - Environment status: {env_status}")
 
     return HealthResponse(
         status="healthy" if kinic and monad else "degraded",
@@ -202,12 +214,18 @@ async def insert_memory(req: Request, request: InsertRequest, api_key: str = Dep
         print("  -> Storing in Kinic...")
         if request.principal:
             print(f"   Using principal isolation: {request.principal[:10]}...")
-        kinic_result = await kinic.insert(
-            content=request.content,
-            tag=request.user_tags or "general",
-            principal=request.principal
-        )
-        print(f"   Stored in Kinic")
+        try:
+            kinic_result = await kinic.insert(
+                content=request.content,
+                tag=request.user_tags or "general",
+                principal=request.principal
+            )
+            print(f"   Stored in Kinic")
+        except Exception as e:
+            print(f"   Kinic storage failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Kinic storage failed: {str(e)}")
 
         # 2. Extract metadata
         print("  -> Extracting metadata...")
@@ -222,13 +240,19 @@ async def insert_memory(req: Request, request: InsertRequest, api_key: str = Dep
             monad_tags = f"{metadata.tags},principal:{request.principal}"
             print(f"   Including principal in on-chain metadata")
 
-        monad_tx = await monad.log_insert(
-            title=metadata.title,
-            summary=metadata.summary,
-            tags=monad_tags,
-            content_hash=metadata.content_hash
-        )
-        print(f"   Logged to Monad: {monad_tx[:16]}...")
+        try:
+            monad_tx = await monad.log_insert(
+                title=metadata.title,
+                summary=metadata.summary,
+                tags=monad_tags,
+                content_hash=metadata.content_hash
+            )
+            print(f"   Logged to Monad: {monad_tx[:16]}...")
+        except Exception as e:
+            print(f"   Monad logging failed: {e}")
+            import traceback
+            traceback.print_exc()
+            raise HTTPException(status_code=500, detail=f"Monad blockchain logging failed: {str(e)}")
 
         print(f" INSERT completed successfully!\n")
 
@@ -238,8 +262,12 @@ async def insert_memory(req: Request, request: InsertRequest, api_key: str = Dep
             metadata=metadata
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f" INSERT failed: {e}\n")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
