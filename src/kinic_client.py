@@ -110,7 +110,9 @@ class KinicClient:
                 print(f"Using last 32 bytes as private key (PKCS8 format)")
 
             print(f"Extracted private key from PEM (length: {len(private_key_hex)})")
-            return Identity(privkey=private_key_hex)
+            identity = Identity(privkey=private_key_hex)
+            print(f"Generated principal: {identity.sender()}")
+            return identity
 
         except Exception as e:
             error_msg = f"Failed to parse IC_IDENTITY_PEM: {e}"
