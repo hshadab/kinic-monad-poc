@@ -194,7 +194,7 @@ async def health():
 
 @app.post("/insert", response_model=InsertResponse)
 @limiter.limit("20/minute")
-async def insert_memory(req: Request, request: InsertRequest, api_key: str = Depends(verify_api_key)):
+async def insert_memory(request: Request, body: InsertRequest, api_key: str = Depends(verify_api_key)):
     """
     Insert content into Kinic memory and log metadata to Monad
 
@@ -213,17 +213,17 @@ async def insert_memory(req: Request, request: InsertRequest, api_key: str = Dep
         raise HTTPException(status_code=503, detail="Services not initialized")
 
     try:
-        print(f"\n INSERT request received ({len(request.content)} chars)")
+        print(f"\n INSERT request received ({len(body.content)} chars)")
 
         # 1. Insert into Kinic memory (Internet Computer)
         print("  -> Storing in Kinic...")
-        if request.principal:
-            print(f"   Using principal isolation: {request.principal[:10]}...")
+        if body.principal:
+            print(f"   Using principal isolation: {body.principal[:10]}...")
         try:
             kinic_result = await kinic.insert(
-                content=request.content,
-                tag=request.user_tags or "general",
-                principal=request.principal
+                content=body.content,
+                tag=body.user_tags or "general",
+                principal=body.principal
             )
             print(f"   Stored in Kinic")
         except Exception as e:
@@ -234,15 +234,15 @@ async def insert_memory(req: Request, request: InsertRequest, api_key: str = Dep
 
         # 2. Extract metadata
         print("  -> Extracting metadata...")
-        metadata = extract_metadata(request.content, request.user_tags)
+        metadata = extract_metadata(body.content, body.user_tags)
         print(f"   Title: '{metadata.title[:50]}...'")
         print(f"   Tags: {metadata.tags}")
 
         # 3. Log to Monad with rich metadata (include principal in tags for audit trail)
         print("  -> Logging to Monad blockchain...")
         monad_tags = metadata.tags
-        if request.principal:
-            monad_tags = f"{metadata.tags},principal:{request.principal}"
+        if body.principal:
+            monad_tags = f"{metadata.tags},principal:{body.principal}"
             print(f"   Including principal in on-chain metadata")
 
         try:
@@ -278,7 +278,7 @@ async def insert_memory(req: Request, request: InsertRequest, api_key: str = Dep
 
 @app.post("/search", response_model=SearchResponse)
 @limiter.limit("30/minute")
-async def search_memory(req: Request, request: SearchRequest, api_key: str = Depends(verify_api_key)):
+async def search_memory(request: Request, body: SearchRequest, api_key: str = Depends(verify_api_key)):
     """
     Search Kinic memory and log search to Monad
 
@@ -292,28 +292,28 @@ async def search_memory(req: Request, request: SearchRequest, api_key: str = Dep
         raise HTTPException(status_code=503, detail="Services not initialized")
 
     try:
-        print(f"\n SEARCH request: '{request.query}'")
+        print(f"\n SEARCH request: '{body.query}'")
 
         # 1. Search Kinic memory
         print("  -> Searching Kinic...")
-        if request.principal:
-            print(f"   Filtering by principal: {request.principal[:10]}...")
+        if body.principal:
+            print(f"   Filtering by principal: {body.principal[:10]}...")
         kinic_results = await kinic.search(
-            query=request.query,
-            top_k=request.top_k,
-            principal=request.principal
+            query=body.query,
+            top_k=body.top_k,
+            principal=body.principal
         )
         print(f"   Found {len(kinic_results)} results")
 
         # 2. Extract query metadata
         print("  -> Extracting metadata...")
-        metadata = extract_metadata(request.query, "search")
+        metadata = extract_metadata(body.query, "search")
 
         # 3. Log search to Monad (include principal in tags for audit trail)
         print("  -> Logging search to Monad...")
         monad_tags = metadata.tags
-        if request.principal:
-            monad_tags = f"{metadata.tags},principal:{request.principal}"
+        if body.principal:
+            monad_tags = f"{metadata.tags},principal:{body.principal}"
 
         monad_tx = await monad.log_search(
             title=f"Search: {metadata.title}",
@@ -325,7 +325,7 @@ async def search_memory(req: Request, request: SearchRequest, api_key: str = Dep
 
         # 4. Format results
         results = []
-        for item in kinic_results[:request.top_k]:
+        for item in kinic_results[:body.top_k]:
             results.append(SearchResult(
                 score=item.get("score", 1.0),
                 text=item.get("text", str(item)),
@@ -367,7 +367,7 @@ async def get_stats():
 
 @app.post("/chat", response_model=ChatResponse)
 @limiter.limit("10/minute")
-async def chat_with_agent(req: Request, request: ChatRequest, api_key: str = Depends(verify_api_key)):
+async def chat_with_agent(request: Request, body: ChatRequest, api_key: str = Depends(verify_api_key)):
     """
     Chat with AI agent (Claude) with memory context
 
@@ -382,21 +382,21 @@ async def chat_with_agent(req: Request, request: ChatRequest, api_key: str = Dep
         raise HTTPException(status_code=503, detail="Services not initialized")
 
     try:
-        print(f"\n CHAT request: '{request.message[:50]}...'")
+        print(f"\n CHAT request: '{body.message[:50]}...'")
 
         # 1. Search Kinic for relevant context
         print("  -> Searching Kinic for context...")
-        if request.principal:
-            print(f"   Using principal: {request.principal[:10]}...")
+        if body.principal:
+            print(f"   Using principal: {body.principal[:10]}...")
         kinic_results = await kinic.search(
-            query=request.message,
-            top_k=request.top_k,
-            principal=request.principal
+            query=body.message,
+            top_k=body.top_k,
+            principal=body.principal
         )
 
         # Format results for AI agent
         memories = []
-        for item in kinic_results[:request.top_k]:
+        for item in kinic_results[:body.top_k]:
             memories.append({
                 "text": item.get("sentence", item.get("text", str(item))),
                 "score": item.get("score", 1.0),
@@ -413,16 +413,16 @@ async def chat_with_agent(req: Request, request: ChatRequest, api_key: str = Dep
             return memories
 
         response_text, _ = await ai_agent.chat_with_memory_search(
-            message=request.message,
+            message=body.message,
             search_function=_return_memories,
-            top_k=request.top_k
+            top_k=body.top_k
         )
         print(f"   AI response generated ({len(response_text)} chars)")
 
         # 3. Extract metadata for Monad logging
         print("  -> Logging conversation to Monad...")
         conversation_metadata = extract_metadata(
-            f"User: {request.message}\nAgent: {response_text}",
+            f"User: {body.message}\nAgent: {response_text}",
             "chat,conversation"
         )
 
@@ -431,8 +431,8 @@ async def chat_with_agent(req: Request, request: ChatRequest, api_key: str = Dep
         monad_tx = "pending"
         try:
             monad_tags = conversation_metadata.tags
-            if request.principal:
-                monad_tags = f"{conversation_metadata.tags},principal:{request.principal}"
+            if body.principal:
+                monad_tags = f"{conversation_metadata.tags},principal:{body.principal}"
 
             monad_tx = await monad.log_insert(
                 title=f"Chat: {conversation_metadata.title}",
