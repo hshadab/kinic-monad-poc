@@ -61,9 +61,18 @@ class KinicClient:
             if not pem_content or not pem_content.strip():
                 raise ValueError("IC_IDENTITY_PEM is empty or not set")
 
-            # Check for valid PEM format
+            # Check if it's base64-encoded PEM (for easier env var handling)
             if "-----BEGIN" not in pem_content:
-                raise ValueError("IC_IDENTITY_PEM is not in valid PEM format (missing -----BEGIN header)")
+                # Try to decode as base64-encoded PEM
+                try:
+                    decoded = base64.b64decode(pem_content).decode('utf-8')
+                    if "-----BEGIN" in decoded:
+                        pem_content = decoded
+                        print("Decoded base64-encoded PEM successfully")
+                    else:
+                        raise ValueError("IC_IDENTITY_PEM is not in valid PEM format (missing -----BEGIN header). You can provide either raw PEM or base64-encoded PEM.")
+                except Exception as decode_err:
+                    raise ValueError(f"IC_IDENTITY_PEM is not valid PEM format and failed base64 decode: {decode_err}")
 
             # Remove PEM headers/footers
             pem_body = re.sub(r'-----BEGIN.*?-----\n?', '', pem_content)
