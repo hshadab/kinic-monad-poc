@@ -245,6 +245,7 @@ async def insert_memory(request: Request, body: InsertRequest, api_key: str = De
             monad_tags = f"{metadata.tags},principal:{body.principal}"
             print(f"   Including principal in on-chain metadata")
 
+        monad_tx = "pending"
         try:
             monad_tx = await monad.log_insert(
                 title=metadata.title,
@@ -254,10 +255,9 @@ async def insert_memory(request: Request, body: InsertRequest, api_key: str = De
             )
             print(f"   Logged to Monad: {monad_tx[:16]}...")
         except Exception as e:
-            print(f"   Monad logging failed: {e}")
-            import traceback
-            traceback.print_exc()
-            raise HTTPException(status_code=500, detail=f"Monad blockchain logging failed: {str(e)}")
+            print(f"   Monad logging failed (non-fatal): {e}")
+            # Don't fail the request - Kinic storage succeeded
+            monad_tx = f"failed: {str(e)[:50]}"
 
         print(f" INSERT completed successfully!\n")
 
