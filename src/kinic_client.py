@@ -206,10 +206,11 @@ class KinicClient:
 
             # 4. Call IC canister insert method
             print(f"Calling canister {self.memory_id} insert method...")
-            result = await self.agent.update_raw(
-                self.memory_id,
-                "insert",
-                encode(params)
+            import asyncio
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(
+                None,
+                lambda: self.agent.update_raw(self.memory_id, "insert", encode(params))
             )
 
             # Decode response (nat32 = memory ID)
