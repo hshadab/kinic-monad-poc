@@ -214,7 +214,16 @@ class KinicClient:
             )
 
             # Decode response (nat32 = memory ID)
-            memory_id = decode(result, [{'type': Types.Nat32}])[0]
+            print(f"Raw result type: {type(result)}, value: {result}")
+            try:
+                memory_id = decode(result, [{'type': Types.Nat32}])[0]
+            except Exception as decode_err:
+                print(f"Decode error: {decode_err}, raw result: {result}")
+                # Try to use result directly if it's already decoded
+                if isinstance(result, (int, list)):
+                    memory_id = result[0] if isinstance(result, list) else result
+                else:
+                    raise decode_err
 
             print(f"Successfully inserted memory ID: {memory_id}")
 
