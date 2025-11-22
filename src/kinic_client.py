@@ -193,7 +193,9 @@ class KinicClient:
             else:
                 final_tag = tag
 
-            tagged_text = f"{final_tag}: {content}"
+            # Format as JSON since canister expects JSON in text field
+            import json
+            tagged_text = json.dumps({"tag": final_tag, "content": content})
 
             # 3. Encode arguments: (vec float32, text)
             # ic-py candid encoding
