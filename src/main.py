@@ -531,6 +531,29 @@ async def search_monad_metadata(request: MonadSearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/list-memories")
+async def list_memories(limit: int = 20):
+    """
+    List recent memories from Monad cache
+
+    Returns memories sorted by timestamp (newest first)
+    """
+    if not monad_cache:
+        raise HTTPException(status_code=503, detail="Monad cache not initialized")
+
+    try:
+        # Get all memories from cache and sort by timestamp
+        memories = sorted(
+            monad_cache.memories,
+            key=lambda m: m.get('timestamp', 0),
+            reverse=True
+        )[:limit]
+
+        return {"memories": memories}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/monad/stats", response_model=MonadStatsResponse)
 async def get_monad_cache_stats():
     """
