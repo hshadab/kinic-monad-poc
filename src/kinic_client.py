@@ -111,7 +111,7 @@ class KinicClient:
 
             print(f"Extracted private key from PEM (length: {len(private_key_hex)})")
             # EC PRIVATE KEY with secp256k1 curve (OID 1.3.132.0.10)
-            identity = Identity(privkey=private_key_hex, key_type="secp256k1")
+            identity = Identity(privkey=private_key_hex, type="secp256k1")
             print(f"Generated principal: {identity.sender()}")
             return identity
 
